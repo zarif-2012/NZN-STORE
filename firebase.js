@@ -1,8 +1,10 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+
 import {
     getAuth,
     GoogleAuthProvider,
-    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     signOut,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
@@ -13,13 +15,13 @@ import {
 
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBgoOqbgUgZb9_NzT5IR7Z7UqThBnWTxtQ",
+    apiKey: "YOUR_FIREBASE_API_KEY",
     authDomain: "nzn-mart.firebaseapp.com",
     projectId: "nzn-mart",
     storageBucket: "nzn-mart.firebasestorage.app",
     messagingSenderId: "666037848963",
-    appId: "1:666037848963:web:47dd1a04478c0bfc5c04b6",
-    measurementId: "G-6H28QJKXXS"
+    appId: "YOUR_FIREBASE_APP_ID",
+    measurementId: "YOUR_MEASUREMENT_ID"
 };
 
 
@@ -38,7 +40,8 @@ export {
     auth,
     db,
     googleProvider,
-    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     signOut,
     onAuthStateChanged
 };
