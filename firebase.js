@@ -1,4 +1,4 @@
- import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 
 import {
     getAuth,
@@ -7,13 +7,13 @@ import {
     getRedirectResult,
     signOut,
     onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 import {
     getFirestore
-} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyBgoOqbgUgZb9_ZzT5IR7Z7UqThBnWTxtQ",
   authDomain: "nzn-mart.firebaseapp.com",
@@ -24,8 +24,6 @@ const firebaseConfig = {
   appId: "1:666037848963:web:47dd1a04478c0bfc5c04b6",
   measurementId: "G-6H28QJKXXS"
 };
-};
-
 
 const app = initializeApp(firebaseConfig);
 
@@ -33,9 +31,7 @@ const auth = getAuth(app);
 
 const db = getFirestore(app);
 
-const googleProvider =
-    new GoogleAuthProvider();
-
+const googleProvider = new GoogleAuthProvider();
 
 export {
     app,
