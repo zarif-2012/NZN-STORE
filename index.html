@@ -1,1 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
 
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#16a34a">
+
+    <meta name="description"
+          content="NZN MART - Your everyday shopping app">
+
+    <title>NZN MART</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- APP HEADER -->
+    <header class="app-header">
+
+        <div class="brand">
+            <div class="brand-icon">🛒</div>
+
+            <div>
+                <h1>NZN MART</h1>
+                <span>Shop easy. Shop smart.</span>
+            </div>
+        </div>
+
+        <button
+            class="profile-button"
+            onclick="openAccount()">
+
+            👤
+
+        </button>
+
+    </header>
+
+
+    <!-- SEARCH -->
+    <section class="search-section">
+
+        <div class="search-box">
+
+            <span>🔎</span>
+
+            <input
+                type="search"
+                id="searchInput"
+                placeholder="Search products..."
+                oninput="searchProducts()">
+
+        </div>
+
+    </section>
+
+
+    <!-- LOCATION -->
+    <section class="location-card">
+
+        <div>
+            <small>Deliver to</small>
+
+            <strong id="deliveryLocation">
+                Select your location
+            </strong>
+        </div>
+
+        <button onclick="selectLocation()">
+            Change
+        </button>
+
+    </section>
+
+
+    <!-- CATEGORIES -->
+    <section class="section">
+
+        <div class="section-heading">
+
+            <h2>Categories</h2>
+
+            <button onclick="showAllCategories()">
+                See all
+            </button>
+
+        </div>
+
+
+        <div
+            id="categories"
+            class="category-list">
+
+            <button
+                class="category active"
+                onclick="filterCategory('All')">
+
+                <span>🛍️</span>
+                <small>All</small>
+
+            </button>
+
+            <button
+                class="category"
+                onclick="filterCategory('Grocery')">
+
+                <span>🍚</span>
+                <small>Grocery</small>
+
+            </button>
+
+            <button
+                class="category"
+                onclick="filterCategory('Dairy')">
+
+                <span>🥛</span>
+                <small>Dairy</small>
+
+            </button>
+
+            <button
+                class="category"
+                onclick="filterCategory('Snacks')">
+
+                <span>🍪</span>
+                <small>Snacks</small>
+
+            </button>
+
+            <button
+                class="category"
+                onclick="filterCategory('Personal Care')">
+
+                <span>🧴</span>
+                <small>Care</small>
+
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- BANNER -->
+    <section class="offer-banner">
+
+        <div>
+
+            <span>🔥 Special Offer</span>
+
+            <h2>Great products.<br>
+                Great prices.</h2>
+
+            <button onclick="showOffers()">
+                Shop Now
+            </button>
+
+        </div>
+
+        <div class="offer-icon">
+            🛍️
+        </div>
+
+    </section>
+
+
+    <!-- PRODUCTS -->
+    <section class="section products-section">
+
+        <div class="section-heading">
+
+            <h2>Popular Products</h2>
+
+            <button onclick="showAllProducts()">
+                See all
+            </button>
+
+        </div>
+
+
+        <div
+            id="products"
+            class="product-grid">
+
+            <!-- Products will be loaded here -->
+
+            <div class="loading">
+
+                <div class="loading-spinner"></div>
+
+                <p>Loading products...</p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- CART PANEL -->
+    <div
+        id="cartPanel"
+        class="side-panel">
+
+        <div class="panel-header">
+
+            <h2>🛒 Your Cart</h2>
+
+            <button onclick="closeCart()">
+                ✕
+            </button>
+
+        </div>
+
+
+        <div
+            id="cartItems"
+            class="cart-items">
+
+            <div class="empty-cart">
+
+                <div>🛒</div>
+
+                <h3>Your cart is empty</h3>
+
+                <p>Add products to get started.</p>
+
+            </div>
+
+        </div>
+
+
+        <div class="cart-footer">
+
+            <div class="total-row">
+
+                <span>Total</span>
+
+                <strong id="cartTotal">
+                    ₹0
+                </strong>
+
+            </div>
+
+            <button
+                class="checkout-button"
+                onclick="startCheckout()">
+
+                Checkout
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- ACCOUNT PANEL -->
+    <div
+        id="accountPanel"
+        class="side-panel">
+
+        <div class="panel-header">
+
+            <h2>👤 Account</h2>
+
+            <button onclick="closeAccount()">
+                ✕
+            </button>
+
+        </div>
+
+
+        <div class="account-content">
+
+            <div class="account-avatar">
+                👤
+            </div>
+
+            <h3 id="accountName">
+                Welcome to NZN MART
+            </h3>
+
+            <p id="accountEmail">
+                Sign in to continue
+            </p>
+
+
+            <button
+                class="google-login"
+                onclick="loginWithGoogle()">
+
+                🔵 Continue with Google
+
+            </button>
+
+
+            <div class="account-links">
+
+                <button onclick="openOrders()">
+                    📦 My Orders
+                </button>
+
+                <button onclick="openAddresses()">
+                    📍 My Addresses
+                </button>
+
+                <button onclick="openSettings()">
+                    ⚙️ Settings
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- CHECKOUT -->
+    <div
+        id="checkoutModal"
+        class="modal">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h2>Checkout</h2>
+
+                <button onclick="closeCheckout()">
+                    ✕
+                </button>
+
+            </div>
+
+
+            <div class="checkout-content">
+
+                <h3>Delivery method</h3>
+
+                <div class="delivery-options">
+
+                    <label class="delivery-option">
+
+                        <input
+                            type="radio"
+                            name="deliveryMethod"
+                            value="delivery"
+                            checked>
+
+                        <div>
+                            🚚
+                            <strong>Delivery</strong>
+                            <small>Delivered to your address</small>
+                        </div>
+
+                    </label>
+
+
+                    <label class="delivery-option">
+
+                        <input
+                            type="radio"
+                            name="deliveryMethod"
+                            value="pickup">
+
+                        <div>
+                            🏪
+                            <strong>Store Pickup</strong>
+                            <small>Collect from the store</small>
+                        </div>
+
+                    </label>
+
+                </div>
+
+
+                <h3>Delivery address</h3>
+
+                <textarea
+                    id="checkoutAddress"
+                    placeholder="Enter your delivery address">
+                </textarea>
+
+
+                <div class="checkout-summary">
+
+                    <div>
+                        <span>Items</span>
+                        <strong id="checkoutItems">
+                            ₹0
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Delivery</span>
+                        <strong id="deliveryFee">
+                            ₹0
+                        </strong>
+                    </div>
+
+                    <div class="grand-total">
+                        <span>Total</span>
+                        <strong id="checkoutTotal">
+                            ₹0
+                        </strong>
+                    </div>
+
+                </div>
+
+
+                <button
+                    class="payment-button"
+                    onclick="payNow()">
+
+                    Continue to Payment 💳
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="bottom-nav">
+
+        <button
+            class="nav-item active"
+            onclick="goHome()">
+
+            <span>🏠</span>
+            <small>Home</small>
+
+        </button>
+
+
+        <button
+            class="nav-item"
+            onclick="showAllProducts()">
+
+            <span>🔎</span>
+            <small>Search</small>
+
+        </button>
+
+
+        <button
+            class="nav-item cart-nav"
+            onclick="openCart()">
+
+            <span>
+                🛒
+                <b id="cartCount">0</b>
+            </span>
+
+            <small>Cart</small>
+
+        </button>
+
+
+        <button
+            class="nav-item"
+            onclick="openOrders()">
+
+            <span>📦</span>
+            <small>Orders</small>
+
+        </button>
+
+
+        <button
+            class="nav-item"
+            onclick="openAccount()">
+
+            <span>👤</span>
+            <small>Account</small>
+
+        </button>
+
+    </nav>
+
+
+    <!-- JAVASCRIPT -->
+    <script src="app.js"></script>
+
+</body>
+                                              </html>
