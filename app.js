@@ -1,11 +1,12 @@
-// ==========================================
+ // ==========================================
 // NZN MART - APP + FIREBASE
 // ==========================================
 
 import {
     auth,
     googleProvider,
-    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     signOut,
     onAuthStateChanged
 } from "./firebase.js";
@@ -13,7 +14,7 @@ import {
 
 // ==========================================
 // TEMPORARY PRODUCTS
-// These will later come from Firestore.
+// Later these will come from Firestore.
 // ==========================================
 
 const products = [
@@ -91,7 +92,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setupDeliveryMethod();
 
+    checkGoogleRedirect();
+
 });
+
+
+// ==========================================
+// CHECK GOOGLE REDIRECT RESULT
+// ==========================================
+
+async function checkGoogleRedirect() {
+
+    try {
+
+        const result =
+            await getRedirectResult(auth);
+
+        if (result && result.user) {
+
+            const user = result.user;
+
+            updateAccountUI(user);
+
+            alert(
+                "Welcome to NZN MART!"
+            );
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Google redirect error:",
+            error
+        );
+
+        alert(
+            "Google login failed. Please try again."
+        );
+
+    }
+
+}
 
 
 // ==========================================
@@ -100,40 +142,75 @@ document.addEventListener("DOMContentLoaded", () => {
 
 onAuthStateChanged(auth, (user) => {
 
-    const accountName =
-        document.getElementById("accountName");
-
-    const accountEmail =
-        document.getElementById("accountEmail");
-
     if (user) {
 
-        if (accountName) {
-            accountName.textContent =
-                user.displayName ||
-                "NZN MART Customer";
-        }
-
-        if (accountEmail) {
-            accountEmail.textContent =
-                user.email || "";
-        }
+        updateAccountUI(user);
 
     } else {
 
+        const accountName =
+            document.getElementById(
+                "accountName"
+            );
+
+        const accountEmail =
+            document.getElementById(
+                "accountEmail"
+            );
+
         if (accountName) {
+
             accountName.textContent =
                 "Welcome to NZN MART";
+
         }
 
         if (accountEmail) {
+
             accountEmail.textContent =
                 "Sign in to continue";
+
         }
 
     }
 
 });
+
+
+// ==========================================
+// UPDATE ACCOUNT UI
+// ==========================================
+
+function updateAccountUI(user) {
+
+    const accountName =
+        document.getElementById(
+            "accountName"
+        );
+
+    const accountEmail =
+        document.getElementById(
+            "accountEmail"
+        );
+
+
+    if (accountName) {
+
+        accountName.textContent =
+            user.displayName ||
+            "NZN MART Customer";
+
+    }
+
+
+    if (accountEmail) {
+
+        accountEmail.textContent =
+            user.email || "";
+
+    }
+
+}
 
 
 // ==========================================
@@ -143,17 +220,24 @@ onAuthStateChanged(auth, (user) => {
 function loadProducts() {
 
     const container =
-        document.getElementById("products");
+        document.getElementById(
+            "products"
+        );
 
     if (!container) return;
 
 
     const searchInput =
-        document.getElementById("searchInput");
+        document.getElementById(
+            "searchInput"
+        );
+
 
     const search =
         searchInput
-            ? searchInput.value.toLowerCase().trim()
+            ? searchInput.value
+                .toLowerCase()
+                .trim()
             : "";
 
 
@@ -162,92 +246,135 @@ function loadProducts() {
 
             const matchesCategory =
                 selectedCategory === "All" ||
-                product.category === selectedCategory;
+                product.category ===
+                selectedCategory;
+
 
             const matchesSearch =
                 product.name
                     .toLowerCase()
                     .includes(search);
 
-            return matchesCategory &&
-                   matchesSearch;
+
+            return (
+                matchesCategory &&
+                matchesSearch
+            );
 
         });
 
 
-    if (filteredProducts.length === 0) {
+    if (
+        filteredProducts.length === 0
+    ) {
 
         container.innerHTML = `
+
             <div class="loading">
-                <div style="font-size:45px;">🔎</div>
-                <p>No products found.</p>
+
+                <div
+                    style="font-size:45px;"
+                >
+                    🔎
+                </div>
+
+                <p>
+                    No products found.
+                </p>
+
             </div>
+
         `;
 
         return;
+
     }
 
 
     container.innerHTML =
-        filteredProducts.map(product => {
+        filteredProducts
+            .map(product => {
 
-            return `
-                <div class="product-card">
+                return `
 
-                    <div class="product-image">
-                        ${product.emoji}
-                    </div>
+                    <div class="product-card">
 
-                    <div class="product-info">
-
-                        <div class="product-category">
-                            ${escapeHTML(product.category)}
+                        <div class="product-image">
+                            ${product.emoji}
                         </div>
 
-                        <div class="product-name">
-                            ${escapeHTML(product.name)}
-                        </div>
 
-                        <div class="product-bottom">
+                        <div class="product-info">
 
-                            <div>
+                            <div
+                                class="product-category"
+                            >
+                                ${escapeHTML(
+                                    product.category
+                                )}
+                            </div>
 
-                                <div class="product-price">
-                                    ₹${product.price}
+
+                            <div
+                                class="product-name"
+                            >
+                                ${escapeHTML(
+                                    product.name
+                                )}
+                            </div>
+
+
+                            <div
+                                class="product-bottom"
+                            >
+
+                                <div>
+
+                                    <div
+                                        class="product-price"
+                                    >
+                                        ₹${product.price}
+                                    </div>
+
+
+                                    ${
+                                        product.stock
+                                        ? ""
+                                        : `
+                                            <div
+                                                class="out-stock"
+                                            >
+                                                Out of stock
+                                            </div>
+                                        `
+                                    }
+
                                 </div>
+
 
                                 ${
                                     product.stock
-                                    ? ""
-                                    : `
-                                        <div class="out-stock">
-                                            Out of stock
-                                        </div>
+                                    ? `
+                                        <button
+                                            class="add-button"
+                                            onclick="addToCart(${product.id})"
+                                        >
+                                            +
+                                        </button>
                                     `
+                                    : ""
                                 }
 
                             </div>
 
-                            ${
-                                product.stock
-                                ? `
-                                    <button
-                                        class="add-button"
-                                        onclick="addToCart(${product.id})">
-                                        +
-                                    </button>
-                                `
-                                : ""
-                            }
-
                         </div>
 
                     </div>
 
-                </div>
-            `;
+                `;
 
-        }).join("");
+            })
+            .join("");
 
 }
 
@@ -264,19 +391,22 @@ function searchProducts() {
 
 
 // ==========================================
-// CATEGORY
+// CATEGORY FILTER
 // ==========================================
 
 function filterCategory(category) {
 
-    selectedCategory = category;
+    selectedCategory =
+        category;
 
 
     document
         .querySelectorAll(".category")
         .forEach(button => {
 
-            button.classList.remove("active");
+            button.classList.remove(
+                "active"
+            );
 
         });
 
@@ -285,14 +415,21 @@ function filterCategory(category) {
         .querySelectorAll(".category")
         .forEach(button => {
 
-            if (
+            const text =
                 button.textContent
                     .trim()
-                    .toLowerCase()
-                    .includes(category.toLowerCase())
+                    .toLowerCase();
+
+
+            if (
+                text.includes(
+                    category.toLowerCase()
+                )
             ) {
 
-                button.classList.add("active");
+                button.classList.add(
+                    "active"
+                );
 
             }
 
@@ -305,20 +442,26 @@ function filterCategory(category) {
 
 
 // ==========================================
-// CART
+// ADD TO CART
 // ==========================================
 
 function addToCart(productId) {
 
     const product =
         products.find(
-            item => item.id === productId
+            item =>
+                item.id === productId
         );
 
 
-    if (!product || !product.stock) {
+    if (
+        !product ||
+        !product.stock
+    ) {
 
-        alert("This product is unavailable.");
+        alert(
+            "This product is unavailable."
+        );
 
         return;
 
@@ -327,7 +470,8 @@ function addToCart(productId) {
 
     const existing =
         cart.find(
-            item => item.id === productId
+            item =>
+                item.id === productId
         );
 
 
@@ -368,13 +512,21 @@ function addToCart(productId) {
 function updateCart() {
 
     const cartItems =
-        document.getElementById("cartItems");
+        document.getElementById(
+            "cartItems"
+        );
+
 
     const cartCount =
-        document.getElementById("cartCount");
+        document.getElementById(
+            "cartCount"
+        );
+
 
     const cartTotal =
-        document.getElementById("cartTotal");
+        document.getElementById(
+            "cartTotal"
+        );
 
 
     const totalQuantity =
@@ -422,9 +574,13 @@ function updateCart() {
 
                 <div>🛒</div>
 
-                <h3>Your cart is empty</h3>
+                <h3>
+                    Your cart is empty
+                </h3>
 
-                <p>Add products to get started.</p>
+                <p>
+                    Add products to get started.
+                </p>
 
             </div>
 
@@ -436,72 +592,91 @@ function updateCart() {
 
 
     cartItems.innerHTML =
-        cart.map(item => `
+        cart
+            .map(item => `
 
-            <div class="cart-item">
+                <div class="cart-item">
 
-                <div class="cart-item-image">
-                    ${item.emoji}
-                </div>
-
-
-                <div class="cart-item-info">
-
-                    <h4>
-                        ${escapeHTML(item.name)}
-                    </h4>
-
-
-                    <div class="cart-item-price">
-                        ₹${item.price}
+                    <div
+                        class="cart-item-image"
+                    >
+                        ${item.emoji}
                     </div>
 
 
-                    <div class="quantity-controls">
+                    <div
+                        class="cart-item-info"
+                    >
 
-                        <button
-                            onclick="changeQuantity(${item.id}, -1)">
-                            −
-                        </button>
-
-
-                        <strong>
-                            ${item.quantity}
-                        </strong>
+                        <h4>
+                            ${escapeHTML(
+                                item.name
+                            )}
+                        </h4>
 
 
-                        <button
-                            onclick="changeQuantity(${item.id}, 1)">
-                            +
-                        </button>
+                        <div
+                            class="cart-item-price"
+                        >
+                            ₹${item.price}
+                        </div>
 
 
-                        <button
-                            onclick="removeFromCart(${item.id})"
-                            style="margin-left:auto;">
-                            🗑️
-                        </button>
+                        <div
+                            class="quantity-controls"
+                        >
+
+                            <button
+                                onclick="changeQuantity(${item.id}, -1)"
+                            >
+                                −
+                            </button>
+
+
+                            <strong>
+                                ${item.quantity}
+                            </strong>
+
+
+                            <button
+                                onclick="changeQuantity(${item.id}, 1)"
+                            >
+                                +
+                            </button>
+
+
+                            <button
+                                onclick="removeFromCart(${item.id})"
+                                style="margin-left:auto;"
+                            >
+                                🗑️
+                            </button>
+
+                        </div>
 
                     </div>
 
                 </div>
 
-            </div>
-
-        `).join("");
+            `)
+            .join("");
 
 }
 
 
 // ==========================================
-// QUANTITY
+// CHANGE QUANTITY
 // ==========================================
 
-function changeQuantity(productId, amount) {
+function changeQuantity(
+    productId,
+    amount
+) {
 
     const item =
         cart.find(
-            product => product.id === productId
+            product =>
+                product.id === productId
         );
 
 
@@ -511,12 +686,15 @@ function changeQuantity(productId, amount) {
     item.quantity += amount;
 
 
-    if (item.quantity <= 0) {
+    if (
+        item.quantity <= 0
+    ) {
 
         cart =
             cart.filter(
                 product =>
-                    product.id !== productId
+                    product.id !==
+                    productId
             );
 
     }
@@ -528,7 +706,7 @@ function changeQuantity(productId, amount) {
 
 
 // ==========================================
-// REMOVE ITEM
+// REMOVE FROM CART
 // ==========================================
 
 function removeFromCart(productId) {
@@ -552,11 +730,16 @@ function removeFromCart(productId) {
 function openCart() {
 
     const panel =
-        document.getElementById("cartPanel");
+        document.getElementById(
+            "cartPanel"
+        );
+
 
     if (panel) {
 
-        panel.classList.add("open");
+        panel.classList.add(
+            "open"
+        );
 
     }
 
@@ -566,11 +749,16 @@ function openCart() {
 function closeCart() {
 
     const panel =
-        document.getElementById("cartPanel");
+        document.getElementById(
+            "cartPanel"
+        );
+
 
     if (panel) {
 
-        panel.classList.remove("open");
+        panel.classList.remove(
+            "open"
+        );
 
     }
 
@@ -584,11 +772,16 @@ function closeCart() {
 function openAccount() {
 
     const panel =
-        document.getElementById("accountPanel");
+        document.getElementById(
+            "accountPanel"
+        );
+
 
     if (panel) {
 
-        panel.classList.add("open");
+        panel.classList.add(
+            "open"
+        );
 
     }
 
@@ -598,11 +791,16 @@ function openAccount() {
 function closeAccount() {
 
     const panel =
-        document.getElementById("accountPanel");
+        document.getElementById(
+            "accountPanel"
+        );
+
 
     if (panel) {
 
-        panel.classList.remove("open");
+        panel.classList.remove(
+            "open"
+        );
 
     }
 
@@ -617,71 +815,21 @@ async function loginWithGoogle() {
 
     try {
 
-        const result =
-            await signInWithPopup(
-                auth,
-                googleProvider
-            );
-
-
-        const user =
-            result.user;
-
-
-        const accountName =
-            document.getElementById(
-                "accountName"
-            );
-
-
-        const accountEmail =
-            document.getElementById(
-                "accountEmail"
-            );
-
-
-        if (accountName) {
-
-            accountName.textContent =
-                user.displayName ||
-                "NZN MART Customer";
-
-        }
-
-
-        if (accountEmail) {
-
-            accountEmail.textContent =
-                user.email || "";
-
-        }
-
-
-        alert(
-            "Welcome to NZN MART!"
+        await signInWithRedirect(
+            auth,
+            googleProvider
         );
-
 
     } catch (error) {
 
         console.error(
-            "Google login error:",
+            "Google sign-in error:",
             error
         );
 
 
-        if (
-            error.code ===
-            "auth/popup-closed-by-user"
-        ) {
-
-            return;
-
-        }
-
-
         alert(
-            "Google login failed. Please try again."
+            "Google login could not start. Please try again."
         );
 
     }
@@ -725,7 +873,9 @@ async function logoutUser() {
 
 function startCheckout() {
 
-    if (cart.length === 0) {
+    if (
+        cart.length === 0
+    ) {
 
         alert(
             "Your cart is empty."
@@ -747,7 +897,9 @@ function startCheckout() {
 
     if (modal) {
 
-        modal.classList.add("open");
+        modal.classList.add(
+            "open"
+        );
 
     }
 
@@ -767,7 +919,9 @@ function closeCheckout() {
 
     if (modal) {
 
-        modal.classList.remove("open");
+        modal.classList.remove(
+            "open"
+        );
 
     }
 
@@ -862,20 +1016,20 @@ function updateCheckout() {
 
 
 // ==========================================
-// PAYMENT
+// PAYMENT PLACEHOLDER
 // ==========================================
 
 function payNow() {
 
     alert(
-        "Real payment will be connected securely after the order system is ready."
+        "Secure online payment will be connected after the order system is ready."
     );
 
 }
 
 
 // ==========================================
-// LOCATION
+// DELIVERY LOCATION
 // ==========================================
 
 function selectLocation() {
@@ -957,7 +1111,8 @@ function goHome() {
 
 function showAllProducts() {
 
-    selectedCategory = "All";
+    selectedCategory =
+        "All";
 
 
     const search =
@@ -1010,7 +1165,7 @@ function showOffers() {
 function openOrders() {
 
     alert(
-        "Real order history will be connected to Firestore next."
+        "Real order history will be connected to Firestore."
     );
 
 }
@@ -1096,7 +1251,7 @@ function escapeHTML(value) {
 
 
 // ==========================================
-// MAKE FUNCTIONS AVAILABLE TO HTML BUTTONS
+// MAKE FUNCTIONS AVAILABLE TO HTML
 // ==========================================
 
 window.loadProducts =
