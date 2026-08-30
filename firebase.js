@@ -13,15 +13,17 @@ import {
     getFirestore
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-
+   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-    apiKey: "YOUR_FIREBASE_API_KEY",
-    authDomain: "nzn-mart.firebaseapp.com",
-    projectId: "nzn-mart",
-    storageBucket: "nzn-mart.firebasestorage.app",
-    messagingSenderId: "666037848963",
-    appId: "YOUR_FIREBASE_APP_ID",
-    measurementId: "YOUR_MEASUREMENT_ID"
+  apiKey: "AIzaSyBgoOqbgUgZb9_ZzT5IR7Z7UqThBnWTxtQ",
+  authDomain: "nzn-mart.firebaseapp.com",
+  databaseURL: "https://nzn-mart-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nzn-mart",
+  storageBucket: "nzn-mart.firebasestorage.app",
+  messagingSenderId: "666037848963",
+  appId: "1:666037848963:web:47dd1a04478c0bfc5c04b6",
+  measurementId: "G-6H28QJKXXS"
+};
 };
 
 
