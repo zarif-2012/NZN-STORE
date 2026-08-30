@@ -13,8 +13,7 @@ import {
 
 
 // ==========================================
-// TEMPORARY PRODUCTS
-// Later these will come from Firestore.
+// PRODUCTS
 // ==========================================
 
 const products = [
@@ -74,7 +73,6 @@ const products = [
 // ==========================================
 
 let cart = [];
-
 let selectedCategory = "All";
 
 
@@ -85,11 +83,8 @@ let selectedCategory = "All";
 document.addEventListener("DOMContentLoaded", () => {
 
     loadProducts();
-
     updateCart();
-
     loadSavedLocation();
-
     setupDeliveryMethod();
 
     checkGoogleRedirect();
@@ -98,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 // ==========================================
-// CHECK GOOGLE REDIRECT RESULT
+// GOOGLE REDIRECT RESULT
 // ==========================================
 
 async function checkGoogleRedirect() {
@@ -110,9 +105,7 @@ async function checkGoogleRedirect() {
 
         if (result && result.user) {
 
-            const user = result.user;
-
-            updateAccountUI(user);
+            updateAccountUI(result.user);
 
             alert(
                 "Welcome to NZN MART!"
@@ -128,7 +121,10 @@ async function checkGoogleRedirect() {
         );
 
         alert(
-            "Google login failed. Please try again."
+            "Google login error:\n\n" +
+            error.code +
+            "\n\n" +
+            error.message
         );
 
     }
@@ -137,7 +133,7 @@ async function checkGoogleRedirect() {
 
 
 // ==========================================
-// FIREBASE AUTH STATE
+// AUTH STATE
 // ==========================================
 
 onAuthStateChanged(auth, (user) => {
@@ -148,26 +144,26 @@ onAuthStateChanged(auth, (user) => {
 
     } else {
 
-        const accountName =
+        const name =
             document.getElementById(
                 "accountName"
             );
 
-        const accountEmail =
+        const email =
             document.getElementById(
                 "accountEmail"
             );
 
-        if (accountName) {
+        if (name) {
 
-            accountName.textContent =
+            name.textContent =
                 "Welcome to NZN MART";
 
         }
 
-        if (accountEmail) {
+        if (email) {
 
-            accountEmail.textContent =
+            email.textContent =
                 "Sign in to continue";
 
         }
@@ -178,34 +174,32 @@ onAuthStateChanged(auth, (user) => {
 
 
 // ==========================================
-// UPDATE ACCOUNT UI
+// UPDATE ACCOUNT
 // ==========================================
 
 function updateAccountUI(user) {
 
-    const accountName =
+    const name =
         document.getElementById(
             "accountName"
         );
 
-    const accountEmail =
+    const email =
         document.getElementById(
             "accountEmail"
         );
 
+    if (name) {
 
-    if (accountName) {
-
-        accountName.textContent =
+        name.textContent =
             user.displayName ||
             "NZN MART Customer";
 
     }
 
+    if (email) {
 
-    if (accountEmail) {
-
-        accountEmail.textContent =
+        email.textContent =
             user.email || "";
 
     }
@@ -264,9 +258,7 @@ function loadProducts() {
         });
 
 
-    if (
-        filteredProducts.length === 0
-    ) {
+    if (filteredProducts.length === 0) {
 
         container.innerHTML = `
 
@@ -293,87 +285,61 @@ function loadProducts() {
 
     container.innerHTML =
         filteredProducts
-            .map(product => {
+            .map(product => `
 
-                return `
+                <div class="product-card">
 
-                    <div class="product-card">
+                    <div class="product-image">
+                        ${product.emoji}
+                    </div>
 
-                        <div class="product-image">
-                            ${product.emoji}
+                    <div class="product-info">
+
+                        <div class="product-category">
+                            ${escapeHTML(
+                                product.category
+                            )}
                         </div>
 
+                        <div class="product-name">
+                            ${escapeHTML(
+                                product.name
+                            )}
+                        </div>
 
-                        <div class="product-info">
+                        <div class="product-bottom">
 
-                            <div
-                                class="product-category"
-                            >
-                                ${escapeHTML(
-                                    product.category
-                                )}
-                            </div>
+                            <div>
 
-
-                            <div
-                                class="product-name"
-                            >
-                                ${escapeHTML(
-                                    product.name
-                                )}
-                            </div>
-
-
-                            <div
-                                class="product-bottom"
-                            >
-
-                                <div>
-
-                                    <div
-                                        class="product-price"
-                                    >
-                                        ₹${product.price}
-                                    </div>
-
-
-                                    ${
-                                        product.stock
-                                        ? ""
-                                        : `
-                                            <div
-                                                class="out-stock"
-                                            >
-                                                Out of stock
-                                            </div>
-                                        `
-                                    }
-
+                                <div class="product-price">
+                                    ₹${product.price}
                                 </div>
 
-
-                                ${
-                                    product.stock
-                                    ? `
-                                        <button
-                                            class="add-button"
-                                            onclick="addToCart(${product.id})"
-                                        >
-                                            +
-                                        </button>
-                                    `
-                                    : ""
-                                }
-
                             </div>
+
+                            ${
+                                product.stock
+                                ? `
+                                    <button
+                                        class="add-button"
+                                        onclick="addToCart(${product.id})">
+                                        +
+                                    </button>
+                                `
+                                : `
+                                    <div class="out-stock">
+                                        Out of stock
+                                    </div>
+                                `
+                            }
 
                         </div>
 
                     </div>
 
-                `;
+                </div>
 
-            })
+            `)
             .join("");
 
 }
@@ -391,7 +357,7 @@ function searchProducts() {
 
 
 // ==========================================
-// CATEGORY FILTER
+// CATEGORY
 // ==========================================
 
 function filterCategory(category) {
@@ -415,16 +381,13 @@ function filterCategory(category) {
         .querySelectorAll(".category")
         .forEach(button => {
 
-            const text =
+            if (
                 button.textContent
                     .trim()
-                    .toLowerCase();
-
-
-            if (
-                text.includes(
-                    category.toLowerCase()
-                )
+                    .toLowerCase()
+                    .includes(
+                        category.toLowerCase()
+                    )
             ) {
 
                 button.classList.add(
@@ -442,7 +405,7 @@ function filterCategory(category) {
 
 
 // ==========================================
-// ADD TO CART
+// CART
 // ==========================================
 
 function addToCart(productId) {
@@ -516,12 +479,10 @@ function updateCart() {
             "cartItems"
         );
 
-
     const cartCount =
         document.getElementById(
             "cartCount"
         );
-
 
     const cartTotal =
         document.getElementById(
@@ -592,80 +553,61 @@ function updateCart() {
 
 
     cartItems.innerHTML =
-        cart
-            .map(item => `
+        cart.map(item => `
 
-                <div class="cart-item">
+            <div class="cart-item">
 
-                    <div
-                        class="cart-item-image"
-                    >
-                        ${item.emoji}
+                <div class="cart-item-image">
+                    ${item.emoji}
+                </div>
+
+                <div class="cart-item-info">
+
+                    <h4>
+                        ${escapeHTML(
+                            item.name
+                        )}
+                    </h4>
+
+                    <div class="cart-item-price">
+                        ₹${item.price}
                     </div>
 
+                    <div class="quantity-controls">
 
-                    <div
-                        class="cart-item-info"
-                    >
+                        <button
+                            onclick="changeQuantity(${item.id}, -1)">
+                            −
+                        </button>
 
-                        <h4>
-                            ${escapeHTML(
-                                item.name
-                            )}
-                        </h4>
+                        <strong>
+                            ${item.quantity}
+                        </strong>
 
+                        <button
+                            onclick="changeQuantity(${item.id}, 1)">
+                            +
+                        </button>
 
-                        <div
-                            class="cart-item-price"
-                        >
-                            ₹${item.price}
-                        </div>
-
-
-                        <div
-                            class="quantity-controls"
-                        >
-
-                            <button
-                                onclick="changeQuantity(${item.id}, -1)"
-                            >
-                                −
-                            </button>
-
-
-                            <strong>
-                                ${item.quantity}
-                            </strong>
-
-
-                            <button
-                                onclick="changeQuantity(${item.id}, 1)"
-                            >
-                                +
-                            </button>
-
-
-                            <button
-                                onclick="removeFromCart(${item.id})"
-                                style="margin-left:auto;"
-                            >
-                                🗑️
-                            </button>
-
-                        </div>
+                        <button
+                            onclick="removeFromCart(${item.id})"
+                            style="margin-left:auto;">
+                            🗑️
+                        </button>
 
                     </div>
 
                 </div>
 
-            `)
-            .join("");
+            </div>
+
+        `).join("");
 
 }
 
 
 // ==========================================
-// CHANGE QUANTITY
+// QUANTITY
 // ==========================================
 
 function changeQuantity(
@@ -686,15 +628,12 @@ function changeQuantity(
     item.quantity += amount;
 
 
-    if (
-        item.quantity <= 0
-    ) {
+    if (item.quantity <= 0) {
 
         cart =
             cart.filter(
                 product =>
-                    product.id !==
-                    productId
+                    product.id !== productId
             );
 
     }
@@ -706,7 +645,7 @@ function changeQuantity(
 
 
 // ==========================================
-// REMOVE FROM CART
+// REMOVE
 // ==========================================
 
 function removeFromCart(productId) {
@@ -766,7 +705,7 @@ function closeCart() {
 
 
 // ==========================================
-// ACCOUNT PANEL
+// ACCOUNT
 // ==========================================
 
 function openAccount() {
@@ -827,9 +766,11 @@ async function loginWithGoogle() {
             error
         );
 
-
         alert(
-            "Google login could not start. Please try again."
+            "Google login error:\n\n" +
+            error.code +
+            "\n\n" +
+            error.message
         );
 
     }
@@ -859,7 +800,10 @@ async function logoutUser() {
         );
 
         alert(
-            "Could not sign out."
+            "Logout error:\n\n" +
+            error.code +
+            "\n\n" +
+            error.message
         );
 
     }
@@ -873,9 +817,7 @@ async function logoutUser() {
 
 function startCheckout() {
 
-    if (
-        cart.length === 0
-    ) {
+    if (cart.length === 0) {
 
         alert(
             "Your cart is empty."
@@ -1016,20 +958,20 @@ function updateCheckout() {
 
 
 // ==========================================
-// PAYMENT PLACEHOLDER
+// PAYMENT
 // ==========================================
 
 function payNow() {
 
     alert(
-        "Secure online payment will be connected after the order system is ready."
+        "Secure payment will be connected after the order system is ready."
     );
 
 }
 
 
 // ==========================================
-// DELIVERY LOCATION
+// LOCATION
 // ==========================================
 
 function selectLocation() {
@@ -1190,7 +1132,7 @@ function openSettings() {
 
 
 // ==========================================
-// DELIVERY METHOD
+// DELIVERY
 // ==========================================
 
 function setupDeliveryMethod() {
