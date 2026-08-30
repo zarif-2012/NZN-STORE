@@ -1,5 +1,19 @@
 // ==========================================
-// NZN MART - APP FOUNDATION
+// NZN MART - APP + FIREBASE
+// ==========================================
+
+import {
+    auth,
+    googleProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
+} from "./firebase.js";
+
+
+// ==========================================
+// TEMPORARY PRODUCTS
+// These will later come from Firestore.
 // ==========================================
 
 const products = [
@@ -53,37 +67,113 @@ const products = [
     }
 ];
 
+
+// ==========================================
+// APP STATE
+// ==========================================
+
 let cart = [];
+
 let selectedCategory = "All";
 
+
+// ==========================================
+// START APP
+// ==========================================
+
 document.addEventListener("DOMContentLoaded", () => {
+
     loadProducts();
+
     updateCart();
+
     loadSavedLocation();
+
+    setupDeliveryMethod();
+
 });
 
+
+// ==========================================
+// FIREBASE AUTH STATE
+// ==========================================
+
+onAuthStateChanged(auth, (user) => {
+
+    const accountName =
+        document.getElementById("accountName");
+
+    const accountEmail =
+        document.getElementById("accountEmail");
+
+    if (user) {
+
+        if (accountName) {
+            accountName.textContent =
+                user.displayName ||
+                "NZN MART Customer";
+        }
+
+        if (accountEmail) {
+            accountEmail.textContent =
+                user.email || "";
+        }
+
+    } else {
+
+        if (accountName) {
+            accountName.textContent =
+                "Welcome to NZN MART";
+        }
+
+        if (accountEmail) {
+            accountEmail.textContent =
+                "Sign in to continue";
+        }
+
+    }
+
+});
+
+
+// ==========================================
+// PRODUCTS
+// ==========================================
+
 function loadProducts() {
-    const container = document.getElementById("products");
+
+    const container =
+        document.getElementById("products");
 
     if (!container) return;
 
-    const searchInput = document.getElementById("searchInput");
 
-    const search = searchInput
-        ? searchInput.value.toLowerCase().trim()
-        : "";
+    const searchInput =
+        document.getElementById("searchInput");
 
-    const filteredProducts = products.filter(product => {
+    const search =
+        searchInput
+            ? searchInput.value.toLowerCase().trim()
+            : "";
 
-        const matchesCategory =
-            selectedCategory === "All" ||
-            product.category === selectedCategory;
 
-        const matchesSearch =
-            product.name.toLowerCase().includes(search);
+    const filteredProducts =
+        products.filter(product => {
 
-        return matchesCategory && matchesSearch;
-    });
+            const matchesCategory =
+                selectedCategory === "All" ||
+                product.category === selectedCategory;
+
+            const matchesSearch =
+                product.name
+                    .toLowerCase()
+                    .includes(search);
+
+            return matchesCategory &&
+                   matchesSearch;
+
+        });
+
 
     if (filteredProducts.length === 0) {
 
@@ -94,126 +184,152 @@ function loadProducts() {
             </div>
         `;
 
-        updateProductCount(0);
         return;
     }
 
-    container.innerHTML = filteredProducts.map(product => {
 
-        return `
-            <div class="product-card">
+    container.innerHTML =
+        filteredProducts.map(product => {
 
-                <div class="product-image">
-                    ${product.emoji}
-                </div>
+            return `
+                <div class="product-card">
 
-                <div class="product-info">
-
-                    <div class="product-category">
-                        ${escapeHTML(product.category)}
+                    <div class="product-image">
+                        ${product.emoji}
                     </div>
 
-                    <div class="product-name">
-                        ${escapeHTML(product.name)}
-                    </div>
+                    <div class="product-info">
 
-                    <div class="product-bottom">
+                        <div class="product-category">
+                            ${escapeHTML(product.category)}
+                        </div>
 
-                        <div>
-                            <div class="product-price">
-                                ₹${product.price}
+                        <div class="product-name">
+                            ${escapeHTML(product.name)}
+                        </div>
+
+                        <div class="product-bottom">
+
+                            <div>
+
+                                <div class="product-price">
+                                    ₹${product.price}
+                                </div>
+
+                                ${
+                                    product.stock
+                                    ? ""
+                                    : `
+                                        <div class="out-stock">
+                                            Out of stock
+                                        </div>
+                                    `
+                                }
+
                             </div>
 
                             ${
                                 product.stock
-                                ? ""
-                                : `
-                                    <div class="out-stock">
-                                        Out of stock
-                                    </div>
+                                ? `
+                                    <button
+                                        class="add-button"
+                                        onclick="addToCart(${product.id})">
+                                        +
+                                    </button>
                                 `
+                                : ""
                             }
-                        </div>
 
-                        ${
-                            product.stock
-                            ? `
-                                <button
-                                    class="add-button"
-                                    onclick="addToCart(${product.id})">
-                                    +
-                                </button>
-                            `
-                            : ""
-                        }
+                        </div>
 
                     </div>
 
                 </div>
+            `;
 
-            </div>
-        `;
+        }).join("");
 
-    }).join("");
-
-    updateProductCount(filteredProducts.length);
 }
 
-function updateProductCount(count) {
 
-    const element = document.getElementById("productCount");
-
-    if (!element) return;
-
-    element.textContent =
-        `${count} product${count === 1 ? "" : "s"}`;
-}
+// ==========================================
+// SEARCH
+// ==========================================
 
 function searchProducts() {
+
     loadProducts();
+
 }
+
+
+// ==========================================
+// CATEGORY
+// ==========================================
 
 function filterCategory(category) {
 
     selectedCategory = category;
 
+
     document
         .querySelectorAll(".category")
         .forEach(button => {
+
             button.classList.remove("active");
+
         });
 
-    const buttons = document.querySelectorAll(".category");
 
-    buttons.forEach(button => {
+    document
+        .querySelectorAll(".category")
+        .forEach(button => {
 
-        if (
-            button.textContent
-                .trim()
-                .toLowerCase()
-                .includes(category.toLowerCase())
-        ) {
-            button.classList.add("active");
-        }
+            if (
+                button.textContent
+                    .trim()
+                    .toLowerCase()
+                    .includes(category.toLowerCase())
+            ) {
 
-    });
+                button.classList.add("active");
+
+            }
+
+        });
+
 
     loadProducts();
+
 }
+
+
+// ==========================================
+// CART
+// ==========================================
 
 function addToCart(productId) {
 
     const product =
-        products.find(item => item.id === productId);
+        products.find(
+            item => item.id === productId
+        );
+
 
     if (!product || !product.stock) {
 
         alert("This product is unavailable.");
+
         return;
+
     }
 
+
     const existing =
-        cart.find(item => item.id === productId);
+        cart.find(
+            item => item.id === productId
+        );
+
 
     if (existing) {
 
@@ -222,18 +338,32 @@ function addToCart(productId) {
     } else {
 
         cart.push({
+
             id: product.id,
+
             name: product.name,
+
             price: product.price,
+
             emoji: product.emoji,
+
             quantity: 1
+
         });
 
     }
 
+
     updateCart();
+
     openCart();
+
 }
+
+
+// ==========================================
+// UPDATE CART
+// ==========================================
 
 function updateCart() {
 
@@ -246,6 +376,7 @@ function updateCart() {
     const cartTotal =
         document.getElementById("cartTotal");
 
+
     const totalQuantity =
         cart.reduce(
             (total, item) =>
@@ -253,35 +384,56 @@ function updateCart() {
             0
         );
 
+
     const totalPrice =
         cart.reduce(
             (total, item) =>
-                total + item.price * item.quantity,
+                total +
+                item.price *
+                item.quantity,
             0
         );
 
+
     if (cartCount) {
-        cartCount.textContent = totalQuantity;
+
+        cartCount.textContent =
+            totalQuantity;
+
     }
+
 
     if (cartTotal) {
-        cartTotal.textContent = `₹${totalPrice}`;
+
+        cartTotal.textContent =
+            `₹${totalPrice}`;
+
     }
 
+
     if (!cartItems) return;
+
 
     if (cart.length === 0) {
 
         cartItems.innerHTML = `
+
             <div class="empty-cart">
+
                 <div>🛒</div>
+
                 <h3>Your cart is empty</h3>
+
                 <p>Add products to get started.</p>
+
             </div>
+
         `;
 
         return;
+
     }
+
 
     cartItems.innerHTML =
         cart.map(item => `
@@ -292,15 +444,18 @@ function updateCart() {
                     ${item.emoji}
                 </div>
 
+
                 <div class="cart-item-info">
 
                     <h4>
                         ${escapeHTML(item.name)}
                     </h4>
 
+
                     <div class="cart-item-price">
                         ₹${item.price}
                     </div>
+
 
                     <div class="quantity-controls">
 
@@ -309,14 +464,17 @@ function updateCart() {
                             −
                         </button>
 
+
                         <strong>
                             ${item.quantity}
                         </strong>
+
 
                         <button
                             onclick="changeQuantity(${item.id}, 1)">
                             +
                         </button>
+
 
                         <button
                             onclick="removeFromCart(${item.id})"
@@ -331,37 +489,65 @@ function updateCart() {
             </div>
 
         `).join("");
+
 }
+
+
+// ==========================================
+// QUANTITY
+// ==========================================
 
 function changeQuantity(productId, amount) {
 
     const item =
-        cart.find(product => product.id === productId);
+        cart.find(
+            product => product.id === productId
+        );
+
 
     if (!item) return;
 
+
     item.quantity += amount;
+
 
     if (item.quantity <= 0) {
 
         cart =
             cart.filter(
-                product => product.id !== productId
+                product =>
+                    product.id !== productId
             );
+
     }
 
+
     updateCart();
+
 }
+
+
+// ==========================================
+// REMOVE ITEM
+// ==========================================
 
 function removeFromCart(productId) {
 
     cart =
         cart.filter(
-            item => item.id !== productId
+            item =>
+                item.id !== productId
         );
 
+
     updateCart();
+
 }
+
+
+// ==========================================
+// CART PANEL
+// ==========================================
 
 function openCart() {
 
@@ -369,9 +555,13 @@ function openCart() {
         document.getElementById("cartPanel");
 
     if (panel) {
+
         panel.classList.add("open");
+
     }
+
 }
+
 
 function closeCart() {
 
@@ -379,9 +569,17 @@ function closeCart() {
         document.getElementById("cartPanel");
 
     if (panel) {
+
         panel.classList.remove("open");
+
     }
+
 }
+
+
+// ==========================================
+// ACCOUNT PANEL
+// ==========================================
 
 function openAccount() {
 
@@ -389,9 +587,13 @@ function openAccount() {
         document.getElementById("accountPanel");
 
     if (panel) {
+
         panel.classList.add("open");
+
     }
+
 }
+
 
 function closeAccount() {
 
@@ -399,220 +601,572 @@ function closeAccount() {
         document.getElementById("accountPanel");
 
     if (panel) {
+
         panel.classList.remove("open");
+
     }
+
 }
+
+
+// ==========================================
+// GOOGLE LOGIN
+// ==========================================
+
+async function loginWithGoogle() {
+
+    try {
+
+        const result =
+            await signInWithPopup(
+                auth,
+                googleProvider
+            );
+
+
+        const user =
+            result.user;
+
+
+        const accountName =
+            document.getElementById(
+                "accountName"
+            );
+
+
+        const accountEmail =
+            document.getElementById(
+                "accountEmail"
+            );
+
+
+        if (accountName) {
+
+            accountName.textContent =
+                user.displayName ||
+                "NZN MART Customer";
+
+        }
+
+
+        if (accountEmail) {
+
+            accountEmail.textContent =
+                user.email || "";
+
+        }
+
+
+        alert(
+            "Welcome to NZN MART!"
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Google login error:",
+            error
+        );
+
+
+        if (
+            error.code ===
+            "auth/popup-closed-by-user"
+        ) {
+
+            return;
+
+        }
+
+
+        alert(
+            "Google login failed. Please try again."
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// LOGOUT
+// ==========================================
+
+async function logoutUser() {
+
+    try {
+
+        await signOut(auth);
+
+        alert(
+            "You have been signed out."
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Logout error:",
+            error
+        );
+
+        alert(
+            "Could not sign out."
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// CHECKOUT
+// ==========================================
 
 function startCheckout() {
 
     if (cart.length === 0) {
 
-        alert("Your cart is empty.");
+        alert(
+            "Your cart is empty."
+        );
+
         return;
+
     }
+
 
     closeCart();
 
+
     const modal =
-        document.getElementById("checkoutModal");
+        document.getElementById(
+            "checkoutModal"
+        );
+
 
     if (modal) {
+
         modal.classList.add("open");
+
     }
 
+
     updateCheckout();
+
 }
+
 
 function closeCheckout() {
 
     const modal =
-        document.getElementById("checkoutModal");
+        document.getElementById(
+            "checkoutModal"
+        );
+
 
     if (modal) {
+
         modal.classList.remove("open");
+
     }
+
 }
+
+
+// ==========================================
+// CHECKOUT TOTAL
+// ==========================================
 
 function updateCheckout() {
 
     const itemsTotal =
         cart.reduce(
             (total, item) =>
-                total + item.price * item.quantity,
+                total +
+                item.price *
+                item.quantity,
             0
         );
+
 
     const deliveryMethod =
         document.querySelector(
             'input[name="deliveryMethod"]:checked'
         );
 
-    const deliveryFee =
+
+    let deliveryFee = 0;
+
+
+    if (
         deliveryMethod &&
-        deliveryMethod.value === "delivery"
-            ? 0
-            : 0;
+        deliveryMethod.value ===
+        "delivery"
+    ) {
 
-    const grandTotal =
-        itemsTotal + deliveryFee;
+        deliveryFee = 0;
 
-    const itemsElement =
-        document.getElementById("checkoutItems");
-
-    const deliveryElement =
-        document.getElementById("deliveryFee");
-
-    const totalElement =
-        document.getElementById("checkoutTotal");
-
-    if (itemsElement) {
-        itemsElement.textContent =
-            `₹${itemsTotal}`;
     }
 
+
+    const grandTotal =
+        itemsTotal +
+        deliveryFee;
+
+
+    const itemsElement =
+        document.getElementById(
+            "checkoutItems"
+        );
+
+
+    const deliveryElement =
+        document.getElementById(
+            "deliveryFee"
+        );
+
+
+    const totalElement =
+        document.getElementById(
+            "checkoutTotal"
+        );
+
+
+    if (itemsElement) {
+
+        itemsElement.textContent =
+            `₹${itemsTotal}`;
+
+    }
+
+
     if (deliveryElement) {
+
         deliveryElement.textContent =
             deliveryFee === 0
                 ? "Free"
                 : `₹${deliveryFee}`;
+
     }
 
+
     if (totalElement) {
+
         totalElement.textContent =
             `₹${grandTotal}`;
+
     }
+
 }
+
+
+// ==========================================
+// PAYMENT
+// ==========================================
 
 function payNow() {
 
     alert(
-        "Payment system will be connected after the secure backend is ready."
+        "Real payment will be connected securely after the order system is ready."
     );
+
 }
+
+
+// ==========================================
+// LOCATION
+// ==========================================
 
 function selectLocation() {
 
     const location =
-        prompt("Enter your delivery location:");
+        prompt(
+            "Enter your delivery location:"
+        );
+
 
     if (!location) return;
+
 
     localStorage.setItem(
         "nznMartLocation",
         location
     );
 
+
     const element =
-        document.getElementById("deliveryLocation");
+        document.getElementById(
+            "deliveryLocation"
+        );
+
 
     if (element) {
-        element.textContent = location;
+
+        element.textContent =
+            location;
+
     }
+
 }
+
 
 function loadSavedLocation() {
 
     const location =
-        localStorage.getItem("nznMartLocation");
+        localStorage.getItem(
+            "nznMartLocation"
+        );
+
 
     const element =
-        document.getElementById("deliveryLocation");
+        document.getElementById(
+            "deliveryLocation"
+        );
 
-    if (location && element) {
-        element.textContent = location;
+
+    if (
+        location &&
+        element
+    ) {
+
+        element.textContent =
+            location;
+
     }
+
 }
+
+
+// ==========================================
+// NAVIGATION
+// ==========================================
 
 function goHome() {
 
     window.scrollTo({
+
         top: 0,
+
         behavior: "smooth"
+
     });
+
 }
+
 
 function showAllProducts() {
 
     selectedCategory = "All";
 
+
     const search =
-        document.getElementById("searchInput");
+        document.getElementById(
+            "searchInput"
+        );
+
 
     if (search) {
+
         search.value = "";
+
     }
+
 
     loadProducts();
 
+
     document
-        .querySelector(".products-section")
+        .querySelector(
+            ".products-section"
+        )
         ?.scrollIntoView({
+
             behavior: "smooth"
+
         });
+
 }
+
 
 function showAllCategories() {
 
     alert(
-        "More categories will be connected to the product database."
+        "More categories will be connected to the store database."
     );
+
 }
+
 
 function showOffers() {
 
     alert(
         "Offers will be loaded from the store database."
     );
+
 }
+
 
 function openOrders() {
 
     alert(
-        "Your real order history will be connected to Firebase soon."
+        "Real order history will be connected to Firestore next."
     );
+
 }
+
 
 function openAddresses() {
 
     alert(
-        "Saved addresses will be available after account setup."
+        "Saved addresses will be connected to your account."
     );
+
 }
+
 
 function openSettings() {
 
     alert(
-        "Account settings will be added soon."
+        "Account settings will be added later."
     );
+
 }
 
-function loginWithGoogle() {
 
-    alert(
-        "Google login will be connected to Firebase next."
+// ==========================================
+// DELIVERY METHOD
+// ==========================================
+
+function setupDeliveryMethod() {
+
+    document.addEventListener(
+        "change",
+        event => {
+
+            if (
+                event.target.name ===
+                "deliveryMethod"
+            ) {
+
+                updateCheckout();
+
+            }
+
+        }
     );
+
 }
+
+
+// ==========================================
+// HTML SAFETY
+// ==========================================
 
 function escapeHTML(value) {
 
     return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+
 }
 
-document.addEventListener(
-    "change",
-    event => {
 
-        if (
-            event.target.name ===
-            "deliveryMethod"
-        ) {
-            updateCheckout();
-        }
+// ==========================================
+// MAKE FUNCTIONS AVAILABLE TO HTML BUTTONS
+// ==========================================
 
-    }
-);
+window.loadProducts =
+    loadProducts;
+
+window.searchProducts =
+    searchProducts;
+
+window.filterCategory =
+    filterCategory;
+
+window.addToCart =
+    addToCart;
+
+window.updateCart =
+    updateCart;
+
+window.changeQuantity =
+    changeQuantity;
+
+window.removeFromCart =
+    removeFromCart;
+
+window.openCart =
+    openCart;
+
+window.closeCart =
+    closeCart;
+
+window.openAccount =
+    openAccount;
+
+window.closeAccount =
+    closeAccount;
+
+window.loginWithGoogle =
+    loginWithGoogle;
+
+window.logoutUser =
+    logoutUser;
+
+window.startCheckout =
+    startCheckout;
+
+window.closeCheckout =
+    closeCheckout;
+
+window.payNow =
+    payNow;
+
+window.selectLocation =
+    selectLocation;
+
+window.goHome =
+    goHome;
+
+window.showAllProducts =
+    showAllProducts;
+
+window.showAllCategories =
+    showAllCategories;
+
+window.showOffers =
+    showOffers;
+
+window.openOrders =
+    openOrders;
+
+window.openAddresses =
+    openAddresses;
+
+window.openSettings =
+    openSettings;
