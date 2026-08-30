@@ -1,494 +1,483 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <meta name="theme-color" content="#16a34a">
-
-    <meta name="description"
-          content="NZN MART - Your everyday shopping app">
-
-    <title>NZN MART</title>
-
-    <link rel="stylesheet" href="style.css">
-</head>
-
-<body>
-
-    <!-- APP HEADER -->
-    <header class="app-header">
-
-        <div class="brand">
-            <div class="brand-icon">🛒</div>
-
-            <div>
-                <h1>NZN MART</h1>
-                <span>Shop easy. Shop smart.</span>
-            </div>
-        </div>
-
-        <button
-            class="profile-button"
-            onclick="openAccount()">
-
-            👤
-
-        </button>
-
-    </header>
-
-
-    <!-- SEARCH -->
-    <section class="search-section">
-
-        <div class="search-box">
-
-            <span>🔎</span>
-
-            <input
-                type="search"
-                id="searchInput"
-                placeholder="Search products..."
-                oninput="searchProducts()">
-
-        </div>
-
-    </section>
-
-
-    <!-- LOCATION -->
-    <section class="location-card">
-
-        <div>
-            <small>Deliver to</small>
-
-            <strong id="deliveryLocation">
-                Select your location
-            </strong>
-        </div>
-
-        <button onclick="selectLocation()">
-            Change
-        </button>
-
-    </section>
-
-
-    <!-- CATEGORIES -->
-    <section class="section">
-
-        <div class="section-heading">
-
-            <h2>Categories</h2>
-
-            <button onclick="showAllCategories()">
-                See all
-            </button>
-
-        </div>
-
-
-        <div
-            id="categories"
-            class="category-list">
-
-            <button
-                class="category active"
-                onclick="filterCategory('All')">
-
-                <span>🛍️</span>
-                <small>All</small>
-
-            </button>
-
-            <button
-                class="category"
-                onclick="filterCategory('Grocery')">
-
-                <span>🍚</span>
-                <small>Grocery</small>
-
-            </button>
-
-            <button
-                class="category"
-                onclick="filterCategory('Dairy')">
-
-                <span>🥛</span>
-                <small>Dairy</small>
-
-            </button>
-
-            <button
-                class="category"
-                onclick="filterCategory('Snacks')">
-
-                <span>🍪</span>
-                <small>Snacks</small>
-
-            </button>
-
-            <button
-                class="category"
-                onclick="filterCategory('Personal Care')">
-
-                <span>🧴</span>
-                <small>Care</small>
-
-            </button>
-
-        </div>
-
-    </section>
-
-
-    <!-- BANNER -->
-    <section class="offer-banner">
-
-        <div>
-
-            <span>🔥 Special Offer</span>
-
-            <h2>Great products.<br>
-                Great prices.</h2>
-
-            <button onclick="showOffers()">
-                Shop Now
-            </button>
-
-        </div>
-
-        <div class="offer-icon">
-            🛍️
-        </div>
-
-    </section>
-
-
-    <!-- PRODUCTS -->
-    <section class="section products-section">
-
-        <div class="section-heading">
-
-            <h2>Popular Products</h2>
-
-            <button onclick="showAllProducts()">
-                See all
-            </button>
-
-        </div>
-
-
-        <div
-            id="products"
-            class="product-grid">
-
-            <!-- Products will be loaded here -->
-
-            <div class="loading">
-
-                <div class="loading-spinner"></div>
-
-                <p>Loading products...</p>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <!-- CART PANEL -->
-    <div
-        id="cartPanel"
-        class="side-panel">
-
-        <div class="panel-header">
-
-            <h2>🛒 Your Cart</h2>
-
-            <button onclick="closeCart()">
-                ✕
-            </button>
-
-        </div>
-
-
-        <div
-            id="cartItems"
-            class="cart-items">
-
-            <div class="empty-cart">
-
-                <div>🛒</div>
-
-                <h3>Your cart is empty</h3>
-
-                <p>Add products to get started.</p>
-
-            </div>
-
-        </div>
-
-
-        <div class="cart-footer">
-
-            <div class="total-row">
-
-                <span>Total</span>
-
-                <strong id="cartTotal">
-                    ₹0
-                </strong>
-
-            </div>
-
-            <button
-                class="checkout-button"
-                onclick="startCheckout()">
-
-                Checkout
-
-            </button>
-
-        </div>
-
-    </div>
-
-
-    <!-- ACCOUNT PANEL -->
-    <div
-        id="accountPanel"
-        class="side-panel">
-
-        <div class="panel-header">
-
-            <h2>👤 Account</h2>
-
-            <button onclick="closeAccount()">
-                ✕
-            </button>
-
-        </div>
-
-
-        <div class="account-content">
-
-            <div class="account-avatar">
-                👤
-            </div>
-
-            <h3 id="accountName">
-                Welcome to NZN MART
-            </h3>
-
-            <p id="accountEmail">
-                Sign in to continue
-            </p>
-
-
-            <button
-                class="google-login"
-                onclick="loginWithGoogle()">
-
-                🔵 Continue with Google
-
-            </button>
-
-
-            <div class="account-links">
-
-                <button onclick="openOrders()">
-                    📦 My Orders
-                </button>
-
-                <button onclick="openAddresses()">
-                    📍 My Addresses
-                </button>
-
-                <button onclick="openSettings()">
-                    ⚙️ Settings
-                </button>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- CHECKOUT -->
-    <div
-        id="checkoutModal"
-        class="modal">
-
-        <div class="modal-content">
-
-            <div class="modal-header">
-
-                <h2>Checkout</h2>
-
-                <button onclick="closeCheckout()">
-                    ✕
-                </button>
-
-            </div>
-
-
-            <div class="checkout-content">
-
-                <h3>Delivery method</h3>
-
-                <div class="delivery-options">
-
-                    <label class="delivery-option">
-
-                        <input
-                            type="radio"
-                            name="deliveryMethod"
-                            value="delivery"
-                            checked>
-
-                        <div>
-                            🚚
-                            <strong>Delivery</strong>
-                            <small>Delivered to your address</small>
-                        </div>
-
-                    </label>
-
-
-                    <label class="delivery-option">
-
-                        <input
-                            type="radio"
-                            name="deliveryMethod"
-                            value="pickup">
-
-                        <div>
-                            🏪
-                            <strong>Store Pickup</strong>
-                            <small>Collect from the store</small>
-                        </div>
-
-                    </label>
-
+<!-- JAVASCRIPT -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
+
+<script>
+
+// ==========================================
+// FIREBASE CONFIG
+// ==========================================
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBgoOqbgUgZb9_ZzT5IR7Z7UqThBnWTxtQ",
+  authDomain: "nzn-mart.firebaseapp.com",
+  databaseURL: "https://nzn-mart-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "nzn-mart",
+  storageBucket: "nzn-mart.firebasestorage.app",
+  messagingSenderId: "666037848963",
+  appId: "1:666037848963:web:47dd1a04478c0bfc5c04b6",
+  measurementId: "G-6H28QJKXXS"
+};
+
+const app = firebase.initializeApp(firebaseConfig);
+const auth = firebase.getAuth(app);
+const db = firebase.getFirestore(app);
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
+
+// ==========================================
+// PRODUCTS
+// ==========================================
+
+const products = [
+    {
+        id: 1,
+        name: "Fresh Rice 5 kg",
+        category: "Grocery",
+        price: 320,
+        emoji: "🍚",
+        stock: true
+    },
+    {
+        id: 2,
+        name: "Fresh Milk 1 L",
+        category: "Dairy",
+        price: 60,
+        emoji: "🥛",
+        stock: true
+    },
+    {
+        id: 3,
+        name: "Biscuits",
+        category: "Snacks",
+        price: 40,
+        emoji: "🍪",
+        stock: true
+    },
+    {
+        id: 4,
+        name: "Shampoo",
+        category: "Personal Care",
+        price: 180,
+        emoji: "🧴",
+        stock: true
+    },
+    {
+        id: 5,
+        name: "Cooking Oil 1 L",
+        category: "Grocery",
+        price: 145,
+        emoji: "🫗",
+        stock: true
+    },
+    {
+        id: 6,
+        name: "Tea Powder",
+        category: "Grocery",
+        price: 120,
+        emoji: "☕",
+        stock: true
+    }
+];
+
+// ==========================================
+// APP STATE
+// ==========================================
+
+let cart = [];
+let selectedCategory = "All";
+
+// ==========================================
+// START APP
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadProducts();
+    updateCart();
+    loadSavedLocation();
+    setupDeliveryMethod();
+    checkGoogleRedirect();
+});
+
+// ==========================================
+// GOOGLE REDIRECT RESULT
+// ==========================================
+
+async function checkGoogleRedirect() {
+    try {
+        const result = await firebase.auth().getRedirectResult();
+        if (result && result.user) {
+            updateAccountUI(result.user);
+            alert("Welcome to NZN MART!");
+        }
+    } catch (error) {
+        console.error("Google redirect error:", error);
+    }
+}
+
+// ==========================================
+// AUTH STATE
+// ==========================================
+
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        updateAccountUI(user);
+    } else {
+        const name = document.getElementById("accountName");
+        const email = document.getElementById("accountEmail");
+        if (name) name.textContent = "Welcome to NZN MART";
+        if (email) email.textContent = "Sign in to continue";
+    }
+});
+
+// ==========================================
+// UPDATE ACCOUNT
+// ==========================================
+
+function updateAccountUI(user) {
+    const name = document.getElementById("accountName");
+    const email = document.getElementById("accountEmail");
+    if (name) name.textContent = user.displayName || "NZN MART Customer";
+    if (email) email.textContent = user.email || "";
+}
+
+// ==========================================
+// PRODUCTS
+// ==========================================
+
+function loadProducts() {
+    const container = document.getElementById("products");
+    if (!container) return;
+
+    const searchInput = document.getElementById("searchInput");
+    const search = searchInput ? searchInput.value.toLowerCase().trim() : "";
+
+    const filteredProducts = products.filter(product => {
+        const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+        const matchesSearch = product.name.toLowerCase().includes(search);
+        return matchesCategory && matchesSearch;
+    });
+
+    if (filteredProducts.length === 0) {
+        container.innerHTML = `<div class="loading"><div style="font-size:45px;">🔎</div><p>No products found.</p></div>`;
+        return;
+    }
+
+    container.innerHTML = filteredProducts.map(product => `
+        <div class="product-card">
+            <div class="product-image">${product.emoji}</div>
+            <div class="product-info">
+                <div class="product-category">${escapeHTML(product.category)}</div>
+                <div class="product-name">${escapeHTML(product.name)}</div>
+                <div class="product-bottom">
+                    <div><div class="product-price">₹${product.price}</div></div>
+                    ${product.stock ? `<button class="add-button" onclick="addToCart(${product.id})">+</button>` : `<div class="out-stock">Out of stock</div>`}
                 </div>
-
-
-                <h3>Delivery address</h3>
-
-                <textarea
-                    id="checkoutAddress"
-                    placeholder="Enter your delivery address">
-                </textarea>
-
-
-                <div class="checkout-summary">
-
-                    <div>
-                        <span>Items</span>
-                        <strong id="checkoutItems">
-                            ₹0
-                        </strong>
-                    </div>
-
-                    <div>
-                        <span>Delivery</span>
-                        <strong id="deliveryFee">
-                            ₹0
-                        </strong>
-                    </div>
-
-                    <div class="grand-total">
-                        <span>Total</span>
-                        <strong id="checkoutTotal">
-                            ₹0
-                        </strong>
-                    </div>
-
-                </div>
-
-
-                <button
-                    class="payment-button"
-                    onclick="payNow()">
-
-                    Continue to Payment 💳
-
-                </button>
-
             </div>
-
         </div>
+    `).join("");
+}
 
-    </div>
+// ==========================================
+// SEARCH
+// ==========================================
 
+function searchProducts() {
+    loadProducts();
+}
 
-    <!-- BOTTOM NAVIGATION -->
-    <nav class="bottom-nav">
+// ==========================================
+// CATEGORY
+// ==========================================
 
-        <button
-            class="nav-item active"
-            onclick="goHome()">
+function filterCategory(category) {
+    selectedCategory = category;
+    document.querySelectorAll(".category").forEach(button => button.classList.remove("active"));
+    document.querySelectorAll(".category").forEach(button => {
+        if (button.textContent.trim().toLowerCase().includes(category.toLowerCase())) {
+            button.classList.add("active");
+        }
+    });
+    loadProducts();
+}
 
-            <span>🏠</span>
-            <small>Home</small>
+// ==========================================
+// CART
+// ==========================================
 
-        </button>
+function addToCart(productId) {
+    const product = products.find(item => item.id === productId);
+    if (!product || !product.stock) {
+        alert("This product is unavailable.");
+        return;
+    }
 
+    const existing = cart.find(item => item.id === productId);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        cart.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            emoji: product.emoji,
+            quantity: 1
+        });
+    }
 
-        <button
-            class="nav-item"
-            onclick="showAllProducts()">
+    updateCart();
+    openCart();
+}
 
-            <span>🔎</span>
-            <small>Search</small>
+// ==========================================
+// UPDATE CART
+// ==========================================
 
-        </button>
+function updateCart() {
+    const cartItems = document.getElementById("cartItems");
+    const cartCount = document.getElementById("cartCount");
+    const cartTotal = document.getElementById("cartTotal");
 
+    const totalQuantity = cart.reduce((total, item) => total + item.quantity, 0);
+    const totalPrice = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
-        <button
-            class="nav-item cart-nav"
-            onclick="openCart()">
+    if (cartCount) cartCount.textContent = totalQuantity;
+    if (cartTotal) cartTotal.textContent = `₹${totalPrice}`;
 
-            <span>
-                🛒
-                <b id="cartCount">0</b>
-            </span>
+    if (!cartItems) return;
 
-            <small>Cart</small>
+    if (cart.length === 0) {
+        cartItems.innerHTML = `<div class="empty-cart"><div>🛒</div><h3>Your cart is empty</h3><p>Add products to get started.</p></div>`;
+        return;
+    }
 
-        </button>
+    cartItems.innerHTML = cart.map(item => `
+        <div class="cart-item">
+            <div class="cart-item-image">${item.emoji}</div>
+            <div class="cart-item-info">
+                <h4>${escapeHTML(item.name)}</h4>
+                <div class="cart-item-price">₹${item.price}</div>
+                <div class="quantity-controls">
+                    <button onclick="changeQuantity(${item.id}, -1)">−</button>
+                    <strong>${item.quantity}</strong>
+                    <button onclick="changeQuantity(${item.id}, 1)">+</button>
+                    <button onclick="removeFromCart(${item.id})" style="margin-left:auto;">🗑️</button>
+                </div>
+            </div>
+        </div>
+    `).join("");
+}
 
+// ==========================================
+// QUANTITY
+// ==========================================
 
-        <button
-            class="nav-item"
-            onclick="openOrders()">
+function changeQuantity(productId, amount) {
+    const item = cart.find(product => product.id === productId);
+    if (!item) return;
+    item.quantity += amount;
+    if (item.quantity <= 0) {
+        cart = cart.filter(product => product.id !== productId);
+    }
+    updateCart();
+}
 
-            <span>📦</span>
-            <small>Orders</small>
+// ==========================================
+// REMOVE
+// ==========================================
 
-        </button>
+function removeFromCart(productId) {
+    cart = cart.filter(item => item.id !== productId);
+    updateCart();
+}
 
+// ==========================================
+// CART PANEL
+// ==========================================
 
-        <button
-            class="nav-item"
-            onclick="openAccount()">
+function openCart() {
+    const panel = document.getElementById("cartPanel");
+    if (panel) panel.classList.add("open");
+}
 
-            <span>👤</span>
-            <small>Account</small>
+function closeCart() {
+    const panel = document.getElementById("cartPanel");
+    if (panel) panel.classList.remove("open");
+}
 
-        </button>
+// ==========================================
+// ACCOUNT
+// ==========================================
 
-    </nav>
+function openAccount() {
+    const panel = document.getElementById("accountPanel");
+    if (panel) panel.classList.add("open");
+}
 
+function closeAccount() {
+    const panel = document.getElementById("accountPanel");
+    if (panel) panel.classList.remove("open");
+}
 
-    <!-- JAVASCRIPT -->
-    <script type="module" src="app.js"></script>
+// ==========================================
+// GOOGLE LOGIN
+// ==========================================
 
-</body>
-</html>
+async function loginWithGoogle() {
+    try {
+        await firebase.auth().signInWithRedirect(googleProvider);
+    } catch (error) {
+        console.error("Google sign-in error:", error);
+        alert("Google login error:\n\n" + error.code + "\n\n" + error.message);
+    }
+}
+
+// ==========================================
+// LOGOUT
+// ==========================================
+
+async function logoutUser() {
+    try {
+        await firebase.auth().signOut();
+        alert("You have been signed out.");
+    } catch (error) {
+        console.error("Logout error:", error);
+        alert("Logout error:\n\n" + error.code + "\n\n" + error.message);
+    }
+}
+
+// ==========================================
+// CHECKOUT
+// ==========================================
+
+function startCheckout() {
+    if (cart.length === 0) {
+        alert("Your cart is empty.");
+        return;
+    }
+    closeCart();
+    const modal = document.getElementById("checkoutModal");
+    if (modal) modal.classList.add("open");
+    updateCheckout();
+}
+
+function closeCheckout() {
+    const modal = document.getElementById("checkoutModal");
+    if (modal) modal.classList.remove("open");
+}
+
+// ==========================================
+// CHECKOUT TOTAL
+// ==========================================
+
+function updateCheckout() {
+    const itemsTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    const deliveryMethod = document.querySelector('input[name="deliveryMethod"]:checked');
+    let deliveryFee = 0;
+
+    if (deliveryMethod && deliveryMethod.value === "delivery") {
+        deliveryFee = 0;
+    }
+
+    const grandTotal = itemsTotal + deliveryFee;
+
+    const itemsElement = document.getElementById("checkoutItems");
+    const deliveryElement = document.getElementById("deliveryFee");
+    const totalElement = document.getElementById("checkoutTotal");
+
+    if (itemsElement) itemsElement.textContent = `₹${itemsTotal}`;
+    if (deliveryElement) deliveryElement.textContent = deliveryFee === 0 ? "Free" : `₹${deliveryFee}`;
+    if (totalElement) totalElement.textContent = `₹${grandTotal}`;
+}
+
+// ==========================================
+// PAYMENT
+// ==========================================
+
+function payNow() {
+    alert("Secure payment will be connected after the order system is ready.");
+}
+
+// ==========================================
+// LOCATION
+// ==========================================
+
+function selectLocation() {
+    const location = prompt("Enter your delivery location:");
+    if (!location) return;
+    localStorage.setItem("nznMartLocation", location);
+    const element = document.getElementById("deliveryLocation");
+    if (element) element.textContent = location;
+}
+
+function loadSavedLocation() {
+    const location = localStorage.getItem("nznMartLocation");
+    const element = document.getElementById("deliveryLocation");
+    if (location && element) element.textContent = location;
+}
+
+// ==========================================
+// NAVIGATION
+// ==========================================
+
+function goHome() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showAllProducts() {
+    selectedCategory = "All";
+    const search = document.getElementById("searchInput");
+    if (search) search.value = "";
+    loadProducts();
+    document.querySelector(".products-section")?.scrollIntoView({ behavior: "smooth" });
+}
+
+function showAllCategories() {
+    alert("More categories will be connected to the store database.");
+}
+
+function showOffers() {
+    alert("Offers will be loaded from the store database.");
+}
+
+function openOrders() {
+    alert("Real order history will be connected to Firestore.");
+}
+
+function openAddresses() {
+    alert("Saved addresses will be connected to your account.");
+}
+
+function openSettings() {
+    alert("Account settings will be added later.");
+}
+
+// ==========================================
+// DELIVERY
+// ==========================================
+
+function setupDeliveryMethod() {
+    document.addEventListener("change", event => {
+        if (event.target.name === "deliveryMethod") {
+            updateCheckout();
+        }
+    });
+}
+
+// ==========================================
+// HTML SAFETY
+// ==========================================
+
+function escapeHTML(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+</script>
