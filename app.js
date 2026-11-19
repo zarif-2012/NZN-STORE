@@ -1,1269 +1,775 @@
- // ==========================================
-// NZN MART - APP + FIREBASE
-// ==========================================
 
-import {
-    auth,
-    googleProvider,
-    signInWithRedirect,
-    getRedirectResult,
-    signOut,
-    onAuthStateChanged
-} from "./firebase.js";
+import { supabase } from "./supabase.js";
 
+// =====================================
+// NZN MART V2 — SUPABASE APPLICATION
+// =====================================
 
-// ==========================================
-// PRODUCTS
-// ==========================================
+const $ = (id) => document.getElementById(id);
 
-const products = [
-    {
-        id: 1,
-        name: "Fresh Rice 5 kg",
-        category: "Grocery",
-        price: 320,
-        emoji: "🍚",
-        stock: true
-    },
-    {
-        id: 2,
-        name: "Fresh Milk 1 L",
-        category: "Dairy",
-        price: 60,
-        emoji: "🥛",
-        stock: true
-    },
-    {
-        id: 3,
-        name: "Biscuits",
-        category: "Snacks",
-        price: 40,
-        emoji: "🍪",
-        stock: true
-    },
-    {
-        id: 4,
-        name: "Shampoo",
-        category: "Personal Care",
-        price: 180,
-        emoji: "🧴",
-        stock: true
-    },
-    {
-        id: 5,
-        name: "Cooking Oil 1 L",
-        category: "Grocery",
-        price: 145,
-        emoji: "🫗",
-        stock: true
-    },
-    {
-        id: 6,
-        name: "Tea Powder",
-        category: "Grocery",
-        price: 120,
-        emoji: "☕",
-        stock: true
+let products = [];
+let shops = [];
+let categories = [];
+let cart = loadCart();
+let selectedCategory = "all";
+let searchTerm = "";
+let currentUser = null;
+let isSignup = false;
+
+const money = (value) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR"
+  }).format(Number(value || 0));
+
+function escapeHTML(value = "") {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+function safeURL(value) {
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol)
+      ? url.href
+      : "";
+  } catch {
+    return "";
+  }
+}
+
+function loadCart() {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem("nzn_mart_cart") || "[]"
+    );
+
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCart() {
+  localStorage.setItem(
+    "nzn_mart_cart",
+    JSON.stringify(cart)
+  );
+}
+
+function showMessage(id, message) {
+  const element = $(id);
+  if (element) element.textContent = message;
+}
+
+// =====================================
+// INITIALIZATION
+// =====================================
+
+document.addEventListener("DOMContentLoaded", async () => {
+  $("currentYear").textContent = new Date().getFullYear();
+
+  setupEvents();
+  updateCart();
+
+  await loadMarketplace();
+
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error("Session error:", error.message);
+  }
+
+  currentUser = data?.session?.user || null;
+  updateAccountButton();
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    currentUser = session?.user || null;
+    updateAccountButton();
+
+    if (event === "SIGNED_IN") {
+      closeModal("authModal");
     }
-];
-
-
-// ==========================================
-// APP STATE
-// ==========================================
-
-let cart = [];
-let selectedCategory = "All";
-
-
-// ==========================================
-// START APP
-// ==========================================
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    loadProducts();
-    updateCart();
-    loadSavedLocation();
-    setupDeliveryMethod();
-
-    checkGoogleRedirect();
-
+  });
 });
 
+// =====================================
+// MARKETPLACE DATA
+// =====================================
 
-// ==========================================
-// GOOGLE REDIRECT RESULT
-// ==========================================
+async function loadMarketplace() {
+  showMessage("productMessage", "Loading products...");
+  showMessage("shopMessage", "Loading local shops...");
 
-async function checkGoogleRedirect() {
+  await Promise.all([
+    loadCategories(),
+    loadProducts(),
+    loadShops()
+  ]);
+}
 
-    try {
+async function loadCategories() {
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id,name,slug")
+    .eq("is_active", true)
+    .order("sort_order");
 
-        const result =
-            await getRedirectResult(auth);
+  if (error) {
+    console.error("Categories:", error.message);
+    categories = [];
+    return;
+  }
 
-        if (result && result.user) {
+  categories = data || [];
+}
 
-            updateAccountUI(result.user);
+async function loadProducts() {
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+      id,
+      shop_id,
+      category_id,
+      name,
+      description,
+      unit,
+      price,
+      stock_quantity,
+      image_url,
+      shops!products_shop_id_fkey (
+        id,
+        name,
+        address_line,
+        area,
+        city,
+        maps_url
+      )
+    `)
+    .eq("is_active", true)
+    .gt("stock_quantity", 0)
+    .order("created_at", { ascending: false });
 
-            alert(
-                "Welcome to NZN MART!"
-            );
+  if (error) {
+    console.error("Products:", error.message);
+    products = [];
 
+    showMessage(
+      "productMessage",
+      "Unable to load products. Please try again later."
+    );
+
+    renderProducts();
+    return;
+  }
+
+  products = (data || []).filter(
+    product => product.shops
+  );
+
+  renderProducts();
+}
+
+async function loadShops() {
+  const { data, error } = await supabase
+    .from("shops")
+    .select(`
+      id,
+      name,
+      owner_name,
+      description,
+      phone,
+      address_line,
+      area,
+      city,
+      state,
+      postal_code,
+      maps_url,
+      status
+    `)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Shops:", error.message);
+    shops = [];
+
+    showMessage(
+      "shopMessage",
+      "Unable to load local shops."
+    );
+
+    renderShops();
+    return;
+  }
+
+  shops = data || [];
+  renderShops();
+}
+
+// =====================================
+// PRODUCT DISPLAY
+// =====================================
+
+function getFilteredProducts() {
+  return products.filter(product => {
+    const categoryMatches =
+      selectedCategory === "all" ||
+      product.category_id === selectedCategory;
+
+    const text = [
+      product.name,
+      product.description,
+      product.shops?.name
+    ].join(" ").toLowerCase();
+
+    const searchMatches =
+      text.includes(searchTerm.toLowerCase());
+
+    return categoryMatches && searchMatches;
+  });
+}
+
+function renderProducts() {
+  const grid = $("productGrid");
+  const filtered = getFilteredProducts();
+
+  if (!filtered.length) {
+    grid.innerHTML = "";
+
+    showMessage(
+      "productMessage",
+      products.length
+        ? "No matching products found. Try another search."
+        : "No products available yet. Local shops will appear here after their products are added."
+    );
+
+    return;
+  }
+
+  showMessage(
+    "productMessage",
+    `${filtered.length} product(s) available`
+  );
+
+  grid.innerHTML = filtered.map(product => {
+    const image = safeURL(product.image_url);
+    const shop = product.shops;
+
+    const address = [
+      shop.address_line,
+      shop.area,
+      shop.city
+    ].filter(Boolean).join(", ");
+
+    const map = safeURL(shop.maps_url);
+
+    return `
+      <article class="product-card">
+
+        ${
+          image
+            ? `<img
+                class="product-image"
+                src="${escapeHTML(image)}"
+                alt="${escapeHTML(product.name)}"
+                loading="lazy"
+                onerror="this.style.display='none'">`
+            : `<div class="product-image"
+                style="display:grid;place-items:center;font-size:55px">
+                🛒
+              </div>`
         }
 
-    } catch (error) {
-
-        console.error(
-            "Google redirect error:",
-            error
-        );
-
-        alert(
-            "Google login error:\n\n" +
-            error.code +
-            "\n\n" +
-            error.message
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// AUTH STATE
-// ==========================================
-
-onAuthStateChanged(auth, (user) => {
-
-    if (user) {
-
-        updateAccountUI(user);
-
-    } else {
-
-        const name =
-            document.getElementById(
-                "accountName"
-            );
-
-        const email =
-            document.getElementById(
-                "accountEmail"
-            );
-
-        if (name) {
-
-            name.textContent =
-                "Welcome to NZN MART";
-
-        }
-
-        if (email) {
-
-            email.textContent =
-                "Sign in to continue";
-
-        }
-
-    }
-
-});
-
-
-// ==========================================
-// UPDATE ACCOUNT
-// ==========================================
-
-function updateAccountUI(user) {
-
-    const name =
-        document.getElementById(
-            "accountName"
-        );
-
-    const email =
-        document.getElementById(
-            "accountEmail"
-        );
-
-    if (name) {
-
-        name.textContent =
-            user.displayName ||
-            "NZN MART Customer";
-
-    }
-
-    if (email) {
-
-        email.textContent =
-            user.email || "";
-
-    }
-
-}
-
-
-// ==========================================
-// PRODUCTS
-// ==========================================
-
-function loadProducts() {
-
-    const container =
-        document.getElementById(
-            "products"
-        );
-
-    if (!container) return;
-
-
-    const searchInput =
-        document.getElementById(
-            "searchInput"
-        );
-
-
-    const search =
-        searchInput
-            ? searchInput.value
-                .toLowerCase()
-                .trim()
-            : "";
-
-
-    const filteredProducts =
-        products.filter(product => {
-
-            const matchesCategory =
-                selectedCategory === "All" ||
-                product.category ===
-                selectedCategory;
-
-
-            const matchesSearch =
-                product.name
-                    .toLowerCase()
-                    .includes(search);
-
-
-            return (
-                matchesCategory &&
-                matchesSearch
-            );
-
-        });
-
-
-    if (filteredProducts.length === 0) {
-
-        container.innerHTML = `
-
-            <div class="loading">
-
-                <div
-                    style="font-size:45px;"
-                >
-                    🔎
-                </div>
-
-                <p>
-                    No products found.
-                </p>
-
-            </div>
-
-        `;
-
-        return;
-
-    }
-
-
-    container.innerHTML =
-        filteredProducts
-            .map(product => `
-
-                <div class="product-card">
-
-                    <div class="product-image">
-                        ${product.emoji}
-                    </div>
-
-                    <div class="product-info">
-
-                        <div class="product-category">
-                            ${escapeHTML(
-                                product.category
-                            )}
-                        </div>
-
-                        <div class="product-name">
-                            ${escapeHTML(
-                                product.name
-                            )}
-                        </div>
-
-                        <div class="product-bottom">
-
-                            <div>
-
-                                <div class="product-price">
-                                    ₹${product.price}
-                                </div>
-
-                            </div>
-
-                            ${
-                                product.stock
-                                ? `
-                                    <button
-                                        class="add-button"
-                                        onclick="addToCart(${product.id})">
-                                        +
-                                    </button>
-                                `
-                                : `
-                                    <div class="out-stock">
-                                        Out of stock
-                                    </div>
-                                `
-                            }
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            `)
-            .join("");
-
-}
-
-
-// ==========================================
-// SEARCH
-// ==========================================
-
-function searchProducts() {
-
-    loadProducts();
-
-}
-
-
-// ==========================================
-// CATEGORY
-// ==========================================
-
-function filterCategory(category) {
-
-    selectedCategory =
-        category;
-
-
-    document
-        .querySelectorAll(".category")
-        .forEach(button => {
-
-            button.classList.remove(
-                "active"
-            );
-
-        });
-
-
-    document
-        .querySelectorAll(".category")
-        .forEach(button => {
-
-            if (
-                button.textContent
-                    .trim()
-                    .toLowerCase()
-                    .includes(
-                        category.toLowerCase()
-                    )
-            ) {
-
-                button.classList.add(
-                    "active"
-                );
-
+        <div class="product-info">
+
+          <h3>${escapeHTML(product.name)}</h3>
+
+          <p>${escapeHTML(product.description || "Local shop product")}</p>
+
+          <div class="product-price">
+            ${money(product.price)}
+          </div>
+
+          <div class="product-stock">
+            ${Number(product.stock_quantity)} available
+          </div>
+
+          <div class="product-shop">
+            🏪 ${escapeHTML(shop.name)}
+            <p>${escapeHTML(address)}</p>
+
+            ${
+              map
+                ? `<a href="${escapeHTML(map)}"
+                     target="_blank"
+                     rel="noopener noreferrer">
+                     📍 View shop on Maps
+                   </a>`
+                : ""
             }
+          </div>
 
-        });
+          <button
+            class="add-cart-btn"
+            data-add="${escapeHTML(product.id)}">
+            + Add to Cart
+          </button>
 
-
-    loadProducts();
-
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
+// =====================================
+// SHOP DISPLAY
+// =====================================
 
-// ==========================================
-// CART
-// ==========================================
+function renderShops() {
+  const grid = $("shopGrid");
+
+  if (!shops.length) {
+    grid.innerHTML = "";
+
+    showMessage(
+      "shopMessage",
+      "No approved shops yet. Be the first local shop to join NZN MART!"
+    );
+
+    return;
+  }
+
+  showMessage(
+    "shopMessage",
+    `${shops.length} local shop(s)`
+  );
+
+  grid.innerHTML = shops.map(shop => {
+    const address = [
+      shop.address_line,
+      shop.area,
+      shop.city,
+      shop.state,
+      shop.postal_code
+    ].filter(Boolean).join(", ");
+
+    const map = safeURL(shop.maps_url);
+
+    return `
+      <article class="shop-card">
+
+        <h3>🏪 ${escapeHTML(shop.name)}</h3>
+
+        <p>${escapeHTML(shop.description || "Local neighbourhood shop")}</p>
+
+        <p>📍 ${escapeHTML(address)}</p>
+
+        ${
+          shop.phone
+            ? `<p>☎ ${escapeHTML(shop.phone)}</p>`
+            : ""
+        }
+
+        ${
+          map
+            ? `<a href="${escapeHTML(map)}"
+                 target="_blank"
+                 rel="noopener noreferrer">
+                 Open Google Maps →
+               </a>`
+            : ""
+        }
+
+      </article>
+    `;
+  }).join("");
+}
+
+// =====================================
+// CATEGORY FILTER
+// =====================================
+
+function setupCategoryEvents() {
+  $("categoryGrid").addEventListener("click", event => {
+    const button = event.target.closest("[data-category]");
+
+    if (!button) return;
+
+    const slug = button.dataset.category;
+
+    const category = categories.find(
+      item => item.slug === slug
+    );
+
+    selectedCategory = category?.id || "invalid";
+
+    document.querySelectorAll(".category-card")
+      .forEach(card => card.classList.remove("active"));
+
+    button.classList.add("active");
+
+    renderProducts();
+
+    $("productsSection").scrollIntoView({
+      behavior: "smooth"
+    });
+  });
+
+  $("clearFilterBtn").addEventListener("click", () => {
+    selectedCategory = "all";
+
+    document.querySelectorAll(".category-card")
+      .forEach(card => card.classList.remove("active"));
+
+    renderProducts();
+  });
+}
+
+// =====================================
+// SEARCH
+// =====================================
+
+function setupSearch() {
+  $("searchInput").addEventListener("input", event => {
+    searchTerm = event.target.value.trim();
+    renderProducts();
+  });
+}
+
+// =====================================
+// SHOPPING CART
+// =====================================
 
 function addToCart(productId) {
+  const product = products.find(
+    item => item.id === productId
+  );
 
-    const product =
-        products.find(
-            item =>
-                item.id === productId
-        );
+  if (!product) return;
 
+  const existing = cart.find(
+    item => item.id === productId
+  );
 
-    if (
-        !product ||
-        !product.stock
-    ) {
-
-        alert(
-            "This product is unavailable."
-        );
-
-        return;
-
+  if (existing) {
+    if (existing.quantity >= product.stock_quantity) {
+      alert("Sorry, only the available stock can be added.");
+      return;
     }
 
+    existing.quantity++;
+  } else {
+    cart.push({
+      id: product.id,
+      name: product.name,
+      price: Number(product.price),
+      quantity: 1,
+      stock: Number(product.stock_quantity),
+      shopName: product.shops?.name || ""
+    });
+  }
 
-    const existing =
-        cart.find(
-            item =>
-                item.id === productId
-        );
-
-
-    if (existing) {
-
-        existing.quantity += 1;
-
-    } else {
-
-        cart.push({
-
-            id: product.id,
-
-            name: product.name,
-
-            price: product.price,
-
-            emoji: product.emoji,
-
-            quantity: 1
-
-        });
-
-    }
-
-
-    updateCart();
-
-    openCart();
-
+  saveCart();
+  updateCart();
 }
 
+function changeQuantity(productId, change) {
+  const item = cart.find(
+    entry => entry.id === productId
+  );
 
-// ==========================================
-// UPDATE CART
-// ==========================================
+  if (!item) return;
+
+  item.quantity += change;
+
+  if (item.quantity <= 0) {
+    cart = cart.filter(
+      entry => entry.id !== productId
+    );
+  } else if (item.quantity > item.stock) {
+    item.quantity = item.stock;
+    alert("Maximum available stock reached.");
+  }
+
+  saveCart();
+  updateCart();
+}
 
 function updateCart() {
+  const count = cart.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
-    const cartItems =
-        document.getElementById(
-            "cartItems"
-        );
+  const total = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
-    const cartCount =
-        document.getElementById(
-            "cartCount"
-        );
+  $("cartCount").textContent = count;
+  $("cartTotal").textContent = money(total);
 
-    const cartTotal =
-        document.getElementById(
-            "cartTotal"
-        );
+  if (!cart.length) {
+    $("cartItems").textContent = "Your cart is empty.";
+    return;
+  }
 
+  $("cartItems").innerHTML = cart.map(item => `
+    <div class="cart-row"
+      style="padding:12px 0;border-bottom:1px solid #eee">
 
-    const totalQuantity =
-        cart.reduce(
-            (total, item) =>
-                total + item.quantity,
-            0
-        );
+      <strong>${escapeHTML(item.name)}</strong>
 
+      <p>${money(item.price)} × ${item.quantity}</p>
 
-    const totalPrice =
-        cart.reduce(
-            (total, item) =>
-                total +
-                item.price *
-                item.quantity,
-            0
-        );
+      <button data-minus="${escapeHTML(item.id)}">−</button>
 
+      <span>${item.quantity}</span>
 
-    if (cartCount) {
+      <button data-plus="${escapeHTML(item.id)}">+</button>
 
-        cartCount.textContent =
-            totalQuantity;
+      <strong>${money(item.price * item.quantity)}</strong>
 
-    }
-
-
-    if (cartTotal) {
-
-        cartTotal.textContent =
-            `₹${totalPrice}`;
-
-    }
-
-
-    if (!cartItems) return;
-
-
-    if (cart.length === 0) {
-
-        cartItems.innerHTML = `
-
-            <div class="empty-cart">
-
-                <div>🛒</div>
-
-                <h3>
-                    Your cart is empty
-                </h3>
-
-                <p>
-                    Add products to get started.
-                </p>
-
-            </div>
-
-        `;
-
-        return;
-
-    }
-
-
-    cartItems.innerHTML =
-        cart.map(item => `
-
-            <div class="cart-item">
-
-                <div class="cart-item-image">
-                    ${item.emoji}
-                </div>
-
-                <div class="cart-item-info">
-
-                    <h4>
-                        ${escapeHTML(
-                            item.name
-                        )}
-                    </h4>
-
-                    <div class="cart-item-price">
-                        ₹${item.price}
-                    </div>
-
-                    <div class="quantity-controls">
-
-                        <button
-                            onclick="changeQuantity(${item.id}, -1)">
-                            −
-                        </button>
-
-                        <strong>
-                            ${item.quantity}
-                        </strong>
-
-                        <button
-                            onclick="changeQuantity(${item.id}, 1)">
-                            +
-                        </button>
-
-                        <button
-                            onclick="removeFromCart(${item.id})"
-                            style="margin-left:auto;">
-                            🗑️
-                        </button>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        `).join("");
-
+    </div>
+  `).join("");
 }
 
+// =====================================
+// AUTHENTICATION
+// =====================================
 
-// ==========================================
-// QUANTITY
-// ==========================================
-
-function changeQuantity(
-    productId,
-    amount
-) {
-
-    const item =
-        cart.find(
-            product =>
-                product.id === productId
-        );
-
-
-    if (!item) return;
-
-
-    item.quantity += amount;
-
-
-    if (item.quantity <= 0) {
-
-        cart =
-            cart.filter(
-                product =>
-                    product.id !== productId
-            );
-
-    }
-
-
-    updateCart();
-
+function updateAccountButton() {
+  $("accountBtn").textContent = currentUser
+    ? "👤 My Account"
+    : "👤 Account";
 }
 
-
-// ==========================================
-// REMOVE
-// ==========================================
-
-function removeFromCart(productId) {
-
-    cart =
-        cart.filter(
-            item =>
-                item.id !== productId
-        );
-
-
-    updateCart();
-
+function openModal(id) {
+  $(id).hidden = false;
 }
 
-
-// ==========================================
-// CART PANEL
-// ==========================================
-
-function openCart() {
-
-    const panel =
-        document.getElementById(
-            "cartPanel"
-        );
-
-
-    if (panel) {
-
-        panel.classList.add(
-            "open"
-        );
-
-    }
-
+function closeModal(id) {
+  $(id).hidden = true;
 }
 
+function updateAuthMode() {
+  $("authName").hidden = !isSignup;
+  $("authName").required = isSignup;
 
-function closeCart() {
+  $("authSubmitBtn").textContent =
+    isSignup ? "Create Account" : "Sign In";
 
-    const panel =
-        document.getElementById(
-            "cartPanel"
-        );
+  $("authModeBtn").textContent =
+    isSignup
+      ? "Already have an account? Sign in"
+      : "Create a new account";
 
+  $("authPassword").autocomplete =
+    isSignup ? "new-password" : "current-password";
 
-    if (panel) {
-
-        panel.classList.remove(
-            "open"
-        );
-
-    }
-
+  showMessage("authMessage", "");
 }
 
+async function handleAuth(event) {
+  event.preventDefault();
 
-// ==========================================
-// ACCOUNT
-// ==========================================
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  const name = $("authName").value.trim();
 
-function openAccount() {
+  const button = $("authSubmitBtn");
 
-    const panel =
-        document.getElementById(
-            "accountPanel"
+  button.disabled = true;
+  button.textContent = "Please wait...";
+
+  try {
+    if (isSignup) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.session) {
+        showMessage("authMessage", "Account created successfully!");
+      } else {
+        showMessage(
+          "authMessage",
+          "Account created. Check your email to confirm your account."
         );
+      }
 
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    if (panel) {
+      if (error) throw error;
 
-        panel.classList.add(
-            "open"
-        );
-
+      showMessage("authMessage", "Signed in successfully!");
     }
 
-}
-
-
-function closeAccount() {
-
-    const panel =
-        document.getElementById(
-            "accountPanel"
-        );
-
-
-    if (panel) {
-
-        panel.classList.remove(
-            "open"
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// GOOGLE LOGIN
-// ==========================================
-
-async function loginWithGoogle() {
-
-    try {
-
-        await signInWithRedirect(
-            auth,
-            googleProvider
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Google sign-in error:",
-            error
-        );
-
-        alert(
-            "Google login error:\n\n" +
-            error.code +
-            "\n\n" +
-            error.message
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// LOGOUT
-// ==========================================
-
-async function logoutUser() {
-
-    try {
-
-        await signOut(auth);
-
-        alert(
-            "You have been signed out."
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Logout error:",
-            error
-        );
-
-        alert(
-            "Logout error:\n\n" +
-            error.code +
-            "\n\n" +
-            error.message
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// CHECKOUT
-// ==========================================
-
-function startCheckout() {
-
-    if (cart.length === 0) {
-
-        alert(
-            "Your cart is empty."
-        );
-
-        return;
-
-    }
-
-
-    closeCart();
-
-
-    const modal =
-        document.getElementById(
-            "checkoutModal"
-        );
-
-
-    if (modal) {
-
-        modal.classList.add(
-            "open"
-        );
-
-    }
-
-
-    updateCheckout();
-
-}
-
-
-function closeCheckout() {
-
-    const modal =
-        document.getElementById(
-            "checkoutModal"
-        );
-
-
-    if (modal) {
-
-        modal.classList.remove(
-            "open"
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// CHECKOUT TOTAL
-// ==========================================
-
-function updateCheckout() {
-
-    const itemsTotal =
-        cart.reduce(
-            (total, item) =>
-                total +
-                item.price *
-                item.quantity,
-            0
-        );
-
-
-    const deliveryMethod =
-        document.querySelector(
-            'input[name="deliveryMethod"]:checked'
-        );
-
-
-    let deliveryFee = 0;
-
-
-    if (
-        deliveryMethod &&
-        deliveryMethod.value ===
-        "delivery"
-    ) {
-
-        deliveryFee = 0;
-
-    }
-
-
-    const grandTotal =
-        itemsTotal +
-        deliveryFee;
-
-
-    const itemsElement =
-        document.getElementById(
-            "checkoutItems"
-        );
-
-
-    const deliveryElement =
-        document.getElementById(
-            "deliveryFee"
-        );
-
-
-    const totalElement =
-        document.getElementById(
-            "checkoutTotal"
-        );
-
-
-    if (itemsElement) {
-
-        itemsElement.textContent =
-            `₹${itemsTotal}`;
-
-    }
-
-
-    if (deliveryElement) {
-
-        deliveryElement.textContent =
-            deliveryFee === 0
-                ? "Free"
-                : `₹${deliveryFee}`;
-
-    }
-
-
-    if (totalElement) {
-
-        totalElement.textContent =
-            `₹${grandTotal}`;
-
-    }
-
-}
-
-
-// ==========================================
-// PAYMENT
-// ==========================================
-
-function payNow() {
-
-    alert(
-        "Secure payment will be connected after the order system is ready."
+  } catch (error) {
+    showMessage(
+      "authMessage",
+      error.message || "Authentication failed."
     );
 
+  } finally {
+    button.disabled = false;
+    updateAuthMode();
+  }
 }
 
+// =====================================
+// SELLER REGISTRATION
+// =====================================
 
-// ==========================================
-// LOCATION
-// ==========================================
+async function registerShop() {
+  if (!currentUser) {
+    alert("Please sign in before registering your shop.");
+    openModal("authModal");
+    return;
+  }
 
-function selectLocation() {
+  const name = prompt("Enter your shop name:");
+  if (!name?.trim()) return;
 
-    const location =
-        prompt(
-            "Enter your delivery location:"
-        );
+  const address = prompt("Enter your full shop address:");
+  if (!address?.trim()) return;
 
+  const area = prompt("Enter your area or locality:");
+  if (area === null) return;
 
-    if (!location) return;
+  const phone = prompt("Enter your shop phone number (optional):");
+  if (phone === null) return;
 
+  const maps = prompt(
+    "Paste your Google Maps link (optional):"
+  );
+  if (maps === null) return;
 
-    localStorage.setItem(
-        "nznMartLocation",
-        location
-    );
+  const mapsURL = maps.trim() ? safeURL(maps.trim()) : "";
 
+  if (maps.trim() && !mapsURL) {
+    alert("Please enter a valid Google Maps URL.");
+    return;
+  }
 
-    const element =
-        document.getElementById(
-            "deliveryLocation"
-        );
-
-
-    if (element) {
-
-        element.textContent =
-            location;
-
-    }
-
-}
-
-
-function loadSavedLocation() {
-
-    const location =
-        localStorage.getItem(
-            "nznMartLocation"
-        );
-
-
-    const element =
-        document.getElementById(
-            "deliveryLocation"
-        );
-
-
-    if (
-        location &&
-        element
-    ) {
-
-        element.textContent =
-            location;
-
-    }
-
-}
-
-
-// ==========================================
-// NAVIGATION
-// ==========================================
-
-function goHome() {
-
-    window.scrollTo({
-
-        top: 0,
-
-        behavior: "smooth"
-
+  const { error } = await supabase
+    .from("shops")
+    .insert({
+      owner_id: currentUser.id,
+      name: name.trim(),
+      address_line: address.trim(),
+      area: area.trim() || null,
+      city: "Tiruchirappalli",
+      state: "Tamil Nadu",
+      country: "India",
+      phone: phone.trim() || null,
+      maps_url: mapsURL || null,
+      status: "pending"
     });
 
+  if (error) {
+    alert("Shop registration failed: " + error.message);
+    return;
+  }
+
+  alert(
+    "Your shop application has been submitted! It will appear after admin approval."
+  );
 }
 
+// =====================================
+// EVENTS
+// =====================================
 
-function showAllProducts() {
+function setupEvents() {
+  setupCategoryEvents();
+  setupSearch();
 
-    selectedCategory =
-        "All";
+  $("exploreBtn").addEventListener("click", () => {
+    $("productsSection").scrollIntoView({
+      behavior: "smooth"
+    });
+  });
 
+  $("productGrid").addEventListener("click", event => {
+    const button = event.target.closest("[data-add]");
+    if (button) addToCart(button.dataset.add);
+  });
 
-    const search =
-        document.getElementById(
-            "searchInput"
-        );
+  $("cartItems").addEventListener("click", event => {
+    const plus = event.target.closest("[data-plus]");
+    const minus = event.target.closest("[data-minus]");
 
+    if (plus) changeQuantity(plus.dataset.plus, 1);
+    if (minus) changeQuantity(minus.dataset.minus, -1);
+  });
 
-    if (search) {
+  $("cartBtn").addEventListener("click", () => {
+    openModal("cartModal");
+  });
 
-        search.value = "";
+  $("closeCartBtn").addEventListener("click", () => {
+    closeModal("cartModal");
+  });
 
+  $("accountBtn").addEventListener("click", async () => {
+    if (currentUser) {
+      const shouldSignOut = confirm(
+        "Do you want to sign out?"
+      );
+
+      if (shouldSignOut) {
+        const { error } = await supabase.auth.signOut();
+
+        if (error) alert(error.message);
+      }
+
+    } else {
+      openModal("authModal");
     }
+  });
 
+  $("closeAuthBtn").addEventListener("click", () => {
+    closeModal("authModal");
+  });
 
-    loadProducts();
+  $("authModeBtn").addEventListener("click", () => {
+    isSignup = !isSignup;
+    updateAuthMode();
+  });
 
+  $("authForm").addEventListener("submit", handleAuth);
 
-    document
-        .querySelector(
-            ".products-section"
-        )
-        ?.scrollIntoView({
+  $("sellerBtn").addEventListener("click", registerShop);
 
-            behavior: "smooth"
-
-        });
-
-}
-
-
-function showAllCategories() {
-
+  $("checkoutBtn").addEventListener("click", () => {
     alert(
-        "More categories will be connected to the store database."
+      "Online ordering and payment are not activated yet. Your cart is saved on this device."
     );
+  });
 
+  document.querySelectorAll(".modal").forEach(modal => {
+    modal.addEventListener("click", event => {
+      if (event.target === modal) {
+        modal.hidden = true;
+      }
+    });
+  });
 }
-
-
-function showOffers() {
-
-    alert(
-        "Offers will be loaded from the store database."
-    );
-
-}
-
-
-function openOrders() {
-
-    alert(
-        "Real order history will be connected to Firestore."
-    );
-
-}
-
-
-function openAddresses() {
-
-    alert(
-        "Saved addresses will be connected to your account."
-    );
-
-}
-
-
-function openSettings() {
-
-    alert(
-        "Account settings will be added later."
-    );
-
-}
-
-
-// ==========================================
-// DELIVERY
-// ==========================================
-
-function setupDeliveryMethod() {
-
-    document.addEventListener(
-        "change",
-        event => {
-
-            if (
-                event.target.name ===
-                "deliveryMethod"
-            ) {
-
-                updateCheckout();
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==========================================
-// HTML SAFETY
-// ==========================================
-
-function escapeHTML(value) {
-
-    return String(value)
-
-        .replaceAll(
-            "&",
-            "&amp;"
-        )
-
-        .replaceAll(
-            "<",
-            "&lt;"
-        )
-
-        .replaceAll(
-            ">",
-            "&gt;"
-        )
-
-        .replaceAll(
-            '"',
-            "&quot;"
-        )
-
-        .replaceAll(
-            "'",
-            "&#039;"
-        );
-
-}
-
-
-// ==========================================
-// MAKE FUNCTIONS AVAILABLE TO HTML
-// ==========================================
-
-window.loadProducts =
-    loadProducts;
-
-window.searchProducts =
-    searchProducts;
-
-window.filterCategory =
-    filterCategory;
-
-window.addToCart =
-    addToCart;
-
-window.updateCart =
-    updateCart;
-
-window.changeQuantity =
-    changeQuantity;
-
-window.removeFromCart =
-    removeFromCart;
-
-window.openCart =
-    openCart;
-
-window.closeCart =
-    closeCart;
-
-window.openAccount =
-    openAccount;
-
-window.closeAccount =
-    closeAccount;
-
-window.loginWithGoogle =
-    loginWithGoogle;
-
-window.logoutUser =
-    logoutUser;
-
-window.startCheckout =
-    startCheckout;
-
-window.closeCheckout =
-    closeCheckout;
-
-window.payNow =
-    payNow;
-
-window.selectLocation =
-    selectLocation;
-
-window.goHome =
-    goHome;
-
-window.showAllProducts =
-    showAllProducts;
-
-window.showAllCategories =
-    showAllCategories;
-
-window.showOffers =
-    showOffers;
-
-window.openOrders =
-    openOrders;
-
-window.openAddresses =
-    openAddresses;
-
-window.openSettings =
-    openSettings;
