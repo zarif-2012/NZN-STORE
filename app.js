@@ -1,29 +1,36 @@
 
 import { supabase } from "./supabase.js";
 
-// =====================================
-// NZN MART V2 — SUPABASE APPLICATION
-// =====================================
+// ==========================================
+// NZN MART — COMPLETE MARKETPLACE APP
+// ==========================================
 
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 let products = [];
 let shops = [];
 let categories = [];
 let cart = loadCart();
+
 let selectedCategory = "all";
 let searchTerm = "";
 let currentUser = null;
 let isSignup = false;
+let pendingShopRegistration = false;
+let authLoading = false;
 
-const money = (value) =>
+// ==========================================
+// UTILITIES
+// ==========================================
+
+const money = value =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR"
   }).format(Number(value || 0));
 
 function escapeHTML(value = "") {
-  return String(value).replace(/[&<>"']/g, (char) => ({
+  return String(value).replace(/[&<>"']/g, char => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -36,11 +43,15 @@ function safeURL(value) {
   try {
     const url = new URL(value);
     return ["https:", "http:"].includes(url.protocol)
-      ? url.href
-      : "";
+      ? url.href : "";
   } catch {
     return "";
   }
+}
+
+function showMessage(id, message) {
+  const element = $(id);
+  if (element) element.textContent = message;
 }
 
 function loadCart() {
@@ -48,7 +59,6 @@ function loadCart() {
     const saved = JSON.parse(
       localStorage.getItem("nzn_mart_cart") || "[]"
     );
-
     return Array.isArray(saved) ? saved : [];
   } catch {
     return [];
@@ -62,45 +72,66 @@ function saveCart() {
   );
 }
 
-function showMessage(id, message) {
-  const element = $(id);
-  if (element) element.textContent = message;
+function openModal(id) {
+  const modal = $(id);
+  if (modal) modal.hidden = false;
 }
 
-// =====================================
+function closeModal(id) {
+  const modal = $(id);
+  if (modal) modal.hidden = true;
+}
+
+// ==========================================
 // INITIALIZATION
-// =====================================
+// ==========================================
 
 document.addEventListener("DOMContentLoaded", async () => {
-  $("currentYear").textContent = new Date().getFullYear();
+  $("currentYear").textContent =
+    new Date().getFullYear();
+
+  isSignup = false;
+  updateAuthMode();
 
   setupEvents();
   updateCart();
 
-  await loadMarketplace();
+  try {
+    const { data, error } =
+      await supabase.auth.getSession();
 
-  const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
 
-  if (error) {
-    console.error("Session error:", error.message);
-  }
-
-  currentUser = data?.session?.user || null;
-  updateAccountButton();
-
-  supabase.auth.onAuthStateChange((event, session) => {
-    currentUser = session?.user || null;
+    currentUser = data.session?.user || null;
     updateAccountButton();
 
-    if (event === "SIGNED_IN") {
-      closeModal("authModal");
-    }
-  });
+    supabase.auth.onAuthStateChange((event, session) => {
+      currentUser = session?.user || null;
+      updateAccountButton();
+
+      if (event === "SIGNED_IN") {
+        closeModal("authModal");
+
+        if (pendingShopRegistration) {
+          pendingShopRegistration = false;
+
+          setTimeout(() => {
+            registerShop();
+          }, 300);
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Authentication initialization:", error);
+  }
+
+  await loadMarketplace();
 });
 
-// =====================================
-// MARKETPLACE DATA
-// =====================================
+// ==========================================
+// MARKETPLACE
+// ==========================================
 
 async function loadMarketplace() {
   showMessage("productMessage", "Loading products...");
@@ -121,7 +152,7 @@ async function loadCategories() {
     .order("sort_order");
 
   if (error) {
-    console.error("Categories:", error.message);
+    console.error("Category error:", error.message);
     categories = [];
     return;
   }
@@ -156,21 +187,19 @@ async function loadProducts() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Products:", error.message);
+    console.error("Product error:", error.message);
     products = [];
 
     showMessage(
       "productMessage",
-      "Unable to load products. Please try again later."
+      "Products could not load: " + error.message
     );
 
     renderProducts();
     return;
   }
 
-  products = (data || []).filter(
-    product => product.shops
-  );
+  products = (data || []).filter(item => item.shops);
 
   renderProducts();
 }
@@ -196,12 +225,12 @@ async function loadShops() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Shops:", error.message);
+    console.error("Shop error:", error.message);
     shops = [];
 
     showMessage(
       "shopMessage",
-      "Unable to load local shops."
+      "Shops could not load: " + error.message
     );
 
     renderShops();
@@ -212,9 +241,9 @@ async function loadShops() {
   renderShops();
 }
 
-// =====================================
+// ==========================================
 // PRODUCT DISPLAY
-// =====================================
+// ==========================================
 
 function getFilteredProducts() {
   return products.filter(product => {
@@ -222,21 +251,21 @@ function getFilteredProducts() {
       selectedCategory === "all" ||
       product.category_id === selectedCategory;
 
-    const text = [
+    const searchable = [
       product.name,
       product.description,
       product.shops?.name
     ].join(" ").toLowerCase();
 
-    const searchMatches =
-      text.includes(searchTerm.toLowerCase());
-
-    return categoryMatches && searchMatches;
+    return categoryMatches &&
+      searchable.includes(searchTerm.toLowerCase());
   });
 }
 
 function renderProducts() {
   const grid = $("productGrid");
+  if (!grid) return;
+
   const filtered = getFilteredProducts();
 
   if (!filtered.length) {
@@ -245,8 +274,8 @@ function renderProducts() {
     showMessage(
       "productMessage",
       products.length
-        ? "No matching products found. Try another search."
-        : "No products available yet. Local shops will appear here after their products are added."
+        ? "No matching products found."
+        : "No products available yet."
     );
 
     return;
@@ -254,12 +283,12 @@ function renderProducts() {
 
   showMessage(
     "productMessage",
-    `${filtered.length} product(s) available`
+    `${filtered.length} products available`
   );
 
   grid.innerHTML = filtered.map(product => {
-    const image = safeURL(product.image_url);
     const shop = product.shops;
+    const image = safeURL(product.image_url);
 
     const address = [
       shop.address_line,
@@ -274,23 +303,24 @@ function renderProducts() {
 
         ${
           image
-            ? `<img
-                class="product-image"
-                src="${escapeHTML(image)}"
-                alt="${escapeHTML(product.name)}"
-                loading="lazy"
-                onerror="this.style.display='none'">`
-            : `<div class="product-image"
-                style="display:grid;place-items:center;font-size:55px">
-                🛒
-              </div>`
+          ? `<img class="product-image"
+                 src="${escapeHTML(image)}"
+                 alt="${escapeHTML(product.name)}"
+                 loading="lazy"
+                 onerror="this.style.display='none'">`
+          : `<div class="product-image"
+                 style="display:grid;place-items:center;font-size:48px">
+                 🛒
+             </div>`
         }
 
         <div class="product-info">
 
           <h3>${escapeHTML(product.name)}</h3>
 
-          <p>${escapeHTML(product.description || "Local shop product")}</p>
+          <p>${escapeHTML(
+            product.description || "Local shop product"
+          )}</p>
 
           <div class="product-price">
             ${money(product.price)}
@@ -306,17 +336,16 @@ function renderProducts() {
 
             ${
               map
-                ? `<a href="${escapeHTML(map)}"
-                     target="_blank"
-                     rel="noopener noreferrer">
-                     📍 View shop on Maps
-                   </a>`
-                : ""
+              ? `<a href="${escapeHTML(map)}"
+                    target="_blank"
+                    rel="noopener noreferrer">
+                    View shop on Maps
+                 </a>`
+              : ""
             }
           </div>
 
-          <button
-            class="add-cart-btn"
+          <button class="add-cart-btn"
             data-add="${escapeHTML(product.id)}">
             + Add to Cart
           </button>
@@ -327,19 +356,20 @@ function renderProducts() {
   }).join("");
 }
 
-// =====================================
+// ==========================================
 // SHOP DISPLAY
-// =====================================
+// ==========================================
 
 function renderShops() {
   const grid = $("shopGrid");
+  if (!grid) return;
 
   if (!shops.length) {
     grid.innerHTML = "";
 
     showMessage(
       "shopMessage",
-      "No approved shops yet. Be the first local shop to join NZN MART!"
+      "No approved shops yet. Register your local shop!"
     );
 
     return;
@@ -347,7 +377,7 @@ function renderShops() {
 
   showMessage(
     "shopMessage",
-    `${shops.length} local shop(s)`
+    `${shops.length} local shops`
   );
 
   grid.innerHTML = shops.map(shop => {
@@ -366,24 +396,26 @@ function renderShops() {
 
         <h3>🏪 ${escapeHTML(shop.name)}</h3>
 
-        <p>${escapeHTML(shop.description || "Local neighbourhood shop")}</p>
+        <p>${escapeHTML(
+          shop.description || "Local neighbourhood shop"
+        )}</p>
 
         <p>📍 ${escapeHTML(address)}</p>
 
         ${
           shop.phone
-            ? `<p>☎ ${escapeHTML(shop.phone)}</p>`
-            : ""
+          ? `<p>☎ ${escapeHTML(shop.phone)}</p>`
+          : ""
         }
 
         ${
           map
-            ? `<a href="${escapeHTML(map)}"
-                 target="_blank"
-                 rel="noopener noreferrer">
-                 Open Google Maps →
-               </a>`
-            : ""
+          ? `<a href="${escapeHTML(map)}"
+                target="_blank"
+                rel="noopener noreferrer">
+                Open Google Maps →
+             </a>`
+          : ""
         }
 
       </article>
@@ -391,20 +423,24 @@ function renderShops() {
   }).join("");
 }
 
-// =====================================
-// CATEGORY FILTER
-// =====================================
+// ==========================================
+// SEARCH AND CATEGORIES
+// ==========================================
+
+function setupSearch() {
+  $("searchInput").addEventListener("input", event => {
+    searchTerm = event.target.value.trim();
+    renderProducts();
+  });
+}
 
 function setupCategoryEvents() {
   $("categoryGrid").addEventListener("click", event => {
     const button = event.target.closest("[data-category]");
-
     if (!button) return;
 
-    const slug = button.dataset.category;
-
     const category = categories.find(
-      item => item.slug === slug
+      item => item.slug === button.dataset.category
     );
 
     selectedCategory = category?.id || "invalid";
@@ -413,7 +449,6 @@ function setupCategoryEvents() {
       .forEach(card => card.classList.remove("active"));
 
     button.classList.add("active");
-
     renderProducts();
 
     $("productsSection").scrollIntoView({
@@ -431,20 +466,9 @@ function setupCategoryEvents() {
   });
 }
 
-// =====================================
-// SEARCH
-// =====================================
-
-function setupSearch() {
-  $("searchInput").addEventListener("input", event => {
-    searchTerm = event.target.value.trim();
-    renderProducts();
-  });
-}
-
-// =====================================
+// ==========================================
 // SHOPPING CART
-// =====================================
+// ==========================================
 
 function addToCart(productId) {
   const product = products.find(
@@ -458,8 +482,8 @@ function addToCart(productId) {
   );
 
   if (existing) {
-    if (existing.quantity >= product.stock_quantity) {
-      alert("Sorry, only the available stock can be added.");
+    if (existing.quantity >= Number(product.stock_quantity)) {
+      alert("Maximum available stock reached.");
       return;
     }
 
@@ -479,19 +503,14 @@ function addToCart(productId) {
   updateCart();
 }
 
-function changeQuantity(productId, change) {
-  const item = cart.find(
-    entry => entry.id === productId
-  );
-
+function changeQuantity(id, change) {
+  const item = cart.find(entry => entry.id === id);
   if (!item) return;
 
   item.quantity += change;
 
   if (item.quantity <= 0) {
-    cart = cart.filter(
-      entry => entry.id !== productId
-    );
+    cart = cart.filter(entry => entry.id !== id);
   } else if (item.quantity > item.stock) {
     item.quantity = item.stock;
     alert("Maximum available stock reached.");
@@ -503,13 +522,11 @@ function changeQuantity(productId, change) {
 
 function updateCart() {
   const count = cart.reduce(
-    (total, item) => total + item.quantity,
-    0
+    (sum, item) => sum + item.quantity, 0
   );
 
   const total = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
+    (sum, item) => sum + item.price * item.quantity, 0
   );
 
   $("cartCount").textContent = count;
@@ -534,15 +551,17 @@ function updateCart() {
 
       <button data-plus="${escapeHTML(item.id)}">+</button>
 
-      <strong>${money(item.price * item.quantity)}</strong>
+      <strong>
+        ${money(item.price * item.quantity)}
+      </strong>
 
     </div>
   `).join("");
 }
 
-// =====================================
+// ==========================================
 // AUTHENTICATION
-// =====================================
+// ==========================================
 
 function updateAccountButton() {
   $("accountBtn").textContent = currentUser
@@ -550,15 +569,7 @@ function updateAccountButton() {
     : "👤 Account";
 }
 
-function openModal(id) {
-  $(id).hidden = false;
-}
-
-function closeModal(id) {
-  $(id).hidden = true;
-}
-
-function updateAuthMode() {
+function updateAuthMode(clearMessage = true) {
   $("authName").hidden = !isSignup;
   $("authName").required = isSignup;
 
@@ -573,11 +584,16 @@ function updateAuthMode() {
   $("authPassword").autocomplete =
     isSignup ? "new-password" : "current-password";
 
-  showMessage("authMessage", "");
+  if (clearMessage) {
+    showMessage("authMessage", "");
+  }
 }
 
 async function handleAuth(event) {
   event.preventDefault();
+
+  if (authLoading) return;
+  authLoading = true;
 
   const email = $("authEmail").value.trim();
   const password = $("authPassword").value;
@@ -590,6 +606,12 @@ async function handleAuth(event) {
 
   try {
     if (isSignup) {
+      if (password.length < 8) {
+        throw new Error(
+          "Password must contain at least 8 characters."
+        );
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -603,44 +625,63 @@ async function handleAuth(event) {
       if (error) throw error;
 
       if (data.session) {
-        showMessage("authMessage", "Account created successfully!");
+        showMessage(
+          "authMessage",
+          "Account created successfully! You are signed in."
+        );
       } else {
         showMessage(
           "authMessage",
-          "Account created. Check your email to confirm your account."
+          "Account created. Please check your email and confirm your account before signing in."
         );
       }
 
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      const { error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
 
       if (error) throw error;
 
-      showMessage("authMessage", "Signed in successfully!");
+      showMessage(
+        "authMessage",
+        "Login successful!"
+      );
     }
 
   } catch (error) {
+    console.error("Authentication error:", error);
+
     showMessage(
       "authMessage",
-      error.message || "Authentication failed."
+      error.message || "Authentication failed. Please try again."
     );
 
   } finally {
+    authLoading = false;
     button.disabled = false;
-    updateAuthMode();
+    updateAuthMode(false);
   }
 }
 
-// =====================================
-// SELLER REGISTRATION
-// =====================================
+// ==========================================
+// SHOP REGISTRATION
+// ==========================================
 
 async function registerShop() {
   if (!currentUser) {
-    alert("Please sign in before registering your shop.");
+    pendingShopRegistration = true;
+    isSignup = false;
+
+    updateAuthMode();
+
+    showMessage(
+      "authMessage",
+      "Please sign in to continue your shop registration."
+    );
+
     openModal("authModal");
     return;
   }
@@ -648,55 +689,61 @@ async function registerShop() {
   const name = prompt("Enter your shop name:");
   if (!name?.trim()) return;
 
-  const address = prompt("Enter your full shop address:");
+  const address = prompt("Enter your complete shop address:");
   if (!address?.trim()) return;
 
   const area = prompt("Enter your area or locality:");
   if (area === null) return;
 
-  const phone = prompt("Enter your shop phone number (optional):");
+  const phone = prompt("Enter your shop phone number:");
   if (phone === null) return;
 
-  const maps = prompt(
-    "Paste your Google Maps link (optional):"
-  );
+  const maps = prompt("Paste your Google Maps link:");
   if (maps === null) return;
 
-  const mapsURL = maps.trim() ? safeURL(maps.trim()) : "";
+  const mapsURL = maps.trim()
+    ? safeURL(maps.trim())
+    : "";
 
   if (maps.trim() && !mapsURL) {
-    alert("Please enter a valid Google Maps URL.");
+    alert("Please enter a valid Maps URL.");
     return;
   }
 
-  const { error } = await supabase
-    .from("shops")
-    .insert({
-      owner_id: currentUser.id,
-      name: name.trim(),
-      address_line: address.trim(),
-      area: area.trim() || null,
-      city: "Tiruchirappalli",
-      state: "Tamil Nadu",
-      country: "India",
-      phone: phone.trim() || null,
-      maps_url: mapsURL || null,
-      status: "pending"
-    });
+  try {
+    const { error } = await supabase
+      .from("shops")
+      .insert({
+        owner_id: currentUser.id,
+        name: name.trim(),
+        address_line: address.trim(),
+        area: area.trim() || null,
+        city: "Tiruchirappalli",
+        state: "Tamil Nadu",
+        country: "India",
+        phone: phone.trim() || null,
+        maps_url: mapsURL || null,
+        status: "pending"
+      });
 
-  if (error) {
-    alert("Shop registration failed: " + error.message);
-    return;
+    if (error) throw error;
+
+    alert(
+      "Shop application submitted successfully! Wait for admin approval."
+    );
+
+  } catch (error) {
+    console.error("Shop registration:", error);
+
+    alert(
+      "Shop registration failed: " + error.message
+    );
   }
-
-  alert(
-    "Your shop application has been submitted! It will appear after admin approval."
-  );
 }
 
-// =====================================
+// ==========================================
 // EVENTS
-// =====================================
+// ==========================================
 
 function setupEvents() {
   setupCategoryEvents();
@@ -731,17 +778,19 @@ function setupEvents() {
 
   $("accountBtn").addEventListener("click", async () => {
     if (currentUser) {
-      const shouldSignOut = confirm(
-        "Do you want to sign out?"
-      );
-
-      if (shouldSignOut) {
+      if (confirm("Do you want to sign out?")) {
         const { error } = await supabase.auth.signOut();
 
-        if (error) alert(error.message);
+        if (error) {
+          alert(error.message);
+        } else {
+          currentUser = null;
+          updateAccountButton();
+        }
       }
-
     } else {
+      isSignup = false;
+      updateAuthMode();
       openModal("authModal");
     }
   });
@@ -761,7 +810,7 @@ function setupEvents() {
 
   $("checkoutBtn").addEventListener("click", () => {
     alert(
-      "Online ordering and payment are not activated yet. Your cart is saved on this device."
+      "Online checkout and payments are not activated yet. Your cart is saved on this device."
     );
   });
 
@@ -773,3 +822,5 @@ function setupEvents() {
     });
   });
 }
+
+console.log("NZN MART application loaded");
